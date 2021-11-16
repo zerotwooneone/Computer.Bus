@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Computer.Bus.Contracts.Models;
 using Computer.Bus.RabbitMq;
+using Computer.Bus.RabbitMq.Serialize;
 
 namespace Computer.Bus.Integration
 {
@@ -17,21 +18,22 @@ namespace Computer.Bus.Integration
 
         private async Task MainAsync(string[] args)
         {
-            Console.WriteLine("Hello World!");
+            Console.WriteLine("Started");
             const string subjectName = "Hello";
+            var serializer = new Serializer();
             var listen = (new TaskFactory()).StartNew(() =>
             {
                 var clientFactory = new ClientFactory();
-                var client = clientFactory.Create();
+                var client = clientFactory.Create(serializer);
 
-                void Callback(string s)
+                void Callback()
                 {
-                    Console.WriteLine($"got a response {s}");
+                    Console.WriteLine($"got a response");
                 }
 
                 var subjectId = new SubjectId { SubjectName = subjectName };
                 Console.WriteLine("listening...");
-                var subscription = client.Subscribe<string>(subjectId, Callback);
+                using var subscription = client.Subscribe(subjectId, Callback);
 
                 Task.Delay(10000).Wait();
             });
@@ -39,13 +41,26 @@ namespace Computer.Bus.Integration
             var send = (new TaskFactory()).StartNew(() =>
             {
                 var clientFactory = new ClientFactory();
-                var client = clientFactory.Create();
+                var client = clientFactory.Create(serializer);
                 var subjectId = new SubjectId { SubjectName = subjectName };
-                Task.Delay(100).Wait();
+                Task.Delay(5000).Wait();
                 Console.WriteLine("publishing...");
                 client.Publish(subjectId);
             });
             await Task.WhenAll(listen, send);
+        }
+    }
+
+    internal class Serializer : ISerializer
+    {
+        public byte[] Serialize<T>(T obj)
+        {
+            throw new NotImplementedException();
+        }
+
+        public T Deserialize<T>(byte[] bytes)
+        {
+            throw new NotImplementedException();
         }
     }
 }

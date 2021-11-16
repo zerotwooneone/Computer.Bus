@@ -1,7 +1,4 @@
 ﻿namespace Computer.Bus.Contracts.Models
 {
-    public record SubjectId : ISubjectId
-    {
-        public string SubjectName { get; init; } = "Uninitialized Subject Name";
-    }
+    public readonly record struct SubjectId(string SubjectName) : ISubjectId;
 }

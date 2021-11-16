@@ -1,81 +1,46 @@
 ﻿using System;
-using System.Text;
 using Computer.Bus.Contracts;
 using Computer.Bus.Contracts.Models;
-using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
+using Computer.Bus.RabbitMq.Serialize;
 
 namespace Computer.Bus.RabbitMq.Client
 {
     public class BusClient : IBusClient
     {
+        private readonly QueueClient _queueClient;
+        private readonly ISerializer _serializer;
+
+        public BusClient(
+            QueueClient queueClient,
+            ISerializer serializer)
+        {
+            _queueClient = queueClient;
+            _serializer = serializer;
+        }
         public PublishResult Publish(ISubjectId subjectId)
         {
-            var factory = new ConnectionFactory() { HostName = "localhost" };
-            using(var connection = factory.CreateConnection())
-            using (var channel = connection.CreateModel())
-            {
-                channel.QueueDeclare(queue: "hello",
-                    durable: false,
-                    exclusive: false,
-                    autoDelete: false,
-                    arguments: null);
-
-                string message = "Hello World!";
-                var body = Encoding.UTF8.GetBytes(message);
-
-                channel.BasicPublish(exchange: "",
-                    routingKey: "hello",
-                    basicProperties: null,
-                    body: body);
-            }
-
-            return new PublishResult();
+            return _queueClient.Publish(subjectId.SubjectName);
         }
-        
+
         public PublishResult Publish<T>(ISubjectId subjectId, T param)
         {
-            throw new NotImplementedException();
+            var body = _serializer.Serialize(param);
+            return _queueClient.Publish(subjectId.SubjectName, body);
         }
 
         public ISubscription Subscribe(ISubjectId subjectId, Action callback)
         {
-            throw new NotImplementedException();
+            return _queueClient.Subscribe(subjectId.SubjectName, callback);
         }
 
         public ISubscription Subscribe<T>(ISubjectId subjectId, Action<T> callback)
         {
-            var factory = new ConnectionFactory() { HostName = "localhost" };
-            using(var connection = factory.CreateConnection())
-            using (var channel = connection.CreateModel())
+            void innerCallback(byte[] b)
             {
-                channel.QueueDeclare(queue: "hello",
-                    durable: false,
-                    exclusive: false,
-                    autoDelete: false,
-                    arguments: null);
-
-                var consumer = new EventingBasicConsumer(channel);
-
-                void OnConsumerOnReceived(object? model, BasicDeliverEventArgs ea)
-                {
-                    var body = ea.Body.ToArray();
-                    var message = Encoding.UTF8.GetString(body);
-                    Console.WriteLine(" [x] Received {0}", message);
-                }
-
-                consumer.Received += OnConsumerOnReceived;
-                channel.BasicConsume(queue: "hello",
-                    autoAck: true,
-                    consumer: consumer);
-                return new RabbitSubscription
-                {
-                    Unsubscribe = () =>
-                    {
-                        consumer.Received -= OnConsumerOnReceived;
-                    }
-                };
+                var body = _serializer.Deserialize<T>(b);
+                callback(body);
             }
+            return _queueClient.Subscribe(subjectId.SubjectName, innerCallback);
         }
     }
 }
