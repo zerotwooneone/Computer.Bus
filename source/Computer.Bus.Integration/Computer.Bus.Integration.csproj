@@ -11,4 +11,9 @@
       <ProjectReference Include="..\Computer.Bus.RabbitMq\Computer.Bus.RabbitMq.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Include="MSTest.TestFramework" Version="2.2.7" />
+      <PackageReference Include="protobuf-net" Version="3.0.101" />
+    </ItemGroup>
+
 </Project>

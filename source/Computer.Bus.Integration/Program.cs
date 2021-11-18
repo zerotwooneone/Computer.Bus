@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Computer.Bus.Contracts.Models;
 using Computer.Bus.RabbitMq;
 using Computer.Bus.RabbitMq.Serialize;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Computer.Bus.Integration
 {
@@ -20,9 +21,19 @@ namespace Computer.Bus.Integration
         private async Task MainAsync(string[] args)
         {
             Console.WriteLine("Started");
-            const string subjectName = "Hello";
+            
+            
+            var serializer = new ProtoSerializer();
+            await ParameterlessTest(serializer);
+        }
+
+        private async Task ParameterlessTest(ISerializer serializer)
+        {
+            const string subjectName = "ParameterlessTest";
             var subjectId = new SubjectId { SubjectName = subjectName };
-            var serializer = new Serializer();
+            var listenStarted = new TaskCompletionSource();
+            var publishCompleted = new TaskCompletionSource();
+            var callbackCount = 0;
             async Task Listen()
             {
                 var clientFactory = new ClientFactory();
@@ -30,49 +41,38 @@ namespace Computer.Bus.Integration
 
                 void Callback()
                 {
-                    //Console.WriteLine("inside callback");
+                    callbackCount++;
                 }
-
-                
-                Console.WriteLine("listening...");
+               
                 using var subscription = client.Subscribe(subjectId, Callback);
+                Console.WriteLine("listening...");
+                listenStarted.TrySetResult();
 
-                //Task.Delay(10000).Wait();
                 try
                 {
-                    await Task.Delay(10000);
+                    await publishCompleted.Task;
                 }
                 catch (Exception e)
                 {
                     Console.WriteLine($"exception:{e}");
                 }
             }
-
-            var send = (new TaskFactory()).StartNew(() =>
+            const int expectedCallbacks = 50;
+            async Task Send()
             {
                 var clientFactory = new ClientFactory();
                 var client = clientFactory.Create(serializer);
-                for (int pubCount = 1; pubCount < 50; pubCount++)
+                await listenStarted.Task;
+                for (int pubCount = 0; pubCount < expectedCallbacks; pubCount++)
                 {
-                    //Console.WriteLine("publishing...");
                     client.Publish(subjectId);
                     Task.Delay(100).Wait();
                 }
-            });
-            await Task.WhenAll(send, Listen());
-        }
-    }
 
-    internal class Serializer : ISerializer
-    {
-        public byte[] Serialize<T>(T obj)
-        {
-            throw new NotImplementedException();
-        }
-
-        public T Deserialize<T>(byte[] bytes)
-        {
-            throw new NotImplementedException();
+                publishCompleted.TrySetResult();
+            }
+            await Task.WhenAll(Send(), Listen());
+            Assert.AreEqual(expectedCallbacks, callbackCount);
         }
     }
 }
