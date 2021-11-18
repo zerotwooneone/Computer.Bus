@@ -4,14 +4,14 @@ using ProtoBuf;
 namespace Computer.Bus.Integration
 {
     [ProtoContract]
-    public class ProtoModel
+    public record ProtoModel
     {
         [ProtoMember(1)] 
-        public double fNumber { get; set; } = DateTime.Now.ToBinary();
+        public double fNumber { get; init; } = DateTime.Now.ToBinary();
 
         [ProtoMember(2)] 
-        public string someString { get; set; } = "something";
+        public string someString { get; init; } = "something";
         [ProtoMember(3)]
-        public DateTime Timestamp { get; set; } = DateTime.Now;
+        public DateTime Timestamp { get; init; } = DateTime.Now;
     }
 }

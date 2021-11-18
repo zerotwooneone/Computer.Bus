@@ -17,8 +17,7 @@ namespace Computer.Bus.RabbitMq.Client
         public PublishResult Publish(string subjectId)
         {
             //todo: remove this dummy message
-            string message = $"Hello World! {DateTime.Now:mm:ss.ffff}";
-            Console.WriteLine($"publish message {message}");
+            string message = $"Hello World!";
             var body = Encoding.UTF8.GetBytes(message);
 
             return Publish(subjectId, body);
@@ -51,8 +50,6 @@ namespace Computer.Bus.RabbitMq.Client
         {
             return Subscribe(subjectId, (s) =>
             {
-                var message = Encoding.UTF8.GetString(s);
-                Console.WriteLine($"received {message}");
                 callback();
             });
         }
@@ -87,7 +84,6 @@ namespace Computer.Bus.RabbitMq.Client
             {
                 Unsubscribe = () =>
                 {
-                    Console.WriteLine("unsubscribing...");
                     consumer.Received -= OnConsumerOnReceived;
                     channel.Dispose();
                 }
