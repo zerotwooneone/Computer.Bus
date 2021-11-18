@@ -30,7 +30,7 @@ namespace Computer.Bus.Integration
 
                 void Callback()
                 {
-                    Console.WriteLine("inside callback");
+                    //Console.WriteLine("inside callback");
                 }
 
                 
