@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Computer.Bus.Contracts.Models;
 using Computer.Bus.RabbitMq;
@@ -20,34 +21,54 @@ namespace Computer.Bus.Integration
         {
             Console.WriteLine("Started");
             const string subjectName = "Hello";
+            var subjectId = new SubjectId { SubjectName = subjectName };
             var serializer = new Serializer();
-            var listen = (new TaskFactory()).StartNew(() =>
+            async Task Listen()
             {
                 var clientFactory = new ClientFactory();
                 var client = clientFactory.Create(serializer);
 
+                var t = new TaskCompletionSource();
+                var c = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                c.Token.Register(() =>
+                {
+                    Console.WriteLine("cancelled");
+                    t.TrySetCanceled();
+                }); 
+                
                 void Callback()
                 {
                     Console.WriteLine($"got a response");
+                    t.TrySetResult();
                 }
 
-                var subjectId = new SubjectId { SubjectName = subjectName };
+                
                 Console.WriteLine("listening...");
                 using var subscription = client.Subscribe(subjectId, Callback);
 
-                Task.Delay(10000).Wait();
-            });
+                //Task.Delay(10000).Wait();
+                try
+                {
+                    await t.Task;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"exception:{e}");
+                }
+            }
 
             var send = (new TaskFactory()).StartNew(() =>
             {
                 var clientFactory = new ClientFactory();
                 var client = clientFactory.Create(serializer);
-                var subjectId = new SubjectId { SubjectName = subjectName };
-                Task.Delay(5000).Wait();
-                Console.WriteLine("publishing...");
-                client.Publish(subjectId);
+                for (int pubCount = 1; pubCount < 50; pubCount++)
+                {
+                    Console.WriteLine("publishing...");
+                    client.Publish(subjectId);
+                    Task.Delay(100).Wait();
+                }
             });
-            await Task.WhenAll(listen, send);
+            await Task.WhenAll(send, Listen());
         }
     }
 

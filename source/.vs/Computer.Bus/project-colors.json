@@ -1,0 +1,21 @@
+{
+  "Version": 1,
+  "ProjectMap": {
+    "3c70f869-0032-47b3-b02e-6e7e0df7986d": {
+      "ProjectGuid": "3c70f869-0032-47b3-b02e-6e7e0df7986d",
+      "DisplayName": "Computer.Bus.Contracts",
+      "ColorIndex": 0
+    },
+    "a10e2922-85d6-4d6a-b7ef-4db2a5a01ed9": {
+      "ProjectGuid": "a10e2922-85d6-4d6a-b7ef-4db2a5a01ed9",
+      "DisplayName": "Computer.Bus.Integration",
+      "ColorIndex": 1
+    },
+    "d06bb409-da6a-498e-9c11-d4f8733a2594": {
+      "ProjectGuid": "d06bb409-da6a-498e-9c11-d4f8733a2594",
+      "DisplayName": "Computer.Bus.RabbitMq",
+      "ColorIndex": 2
+    }
+  },
+  "NextColorIndex": 3
+}
