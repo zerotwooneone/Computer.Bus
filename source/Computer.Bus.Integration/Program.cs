@@ -28,18 +28,9 @@ namespace Computer.Bus.Integration
                 var clientFactory = new ClientFactory();
                 var client = clientFactory.Create(serializer);
 
-                var t = new TaskCompletionSource();
-                var c = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-                c.Token.Register(() =>
-                {
-                    Console.WriteLine("cancelled");
-                    t.TrySetCanceled();
-                }); 
-                
                 void Callback()
                 {
-                    Console.WriteLine($"got a response");
-                    t.TrySetResult();
+                    Console.WriteLine("inside callback");
                 }
 
                 
@@ -49,7 +40,7 @@ namespace Computer.Bus.Integration
                 //Task.Delay(10000).Wait();
                 try
                 {
-                    await t.Task;
+                    await Task.Delay(10000);
                 }
                 catch (Exception e)
                 {
@@ -63,7 +54,7 @@ namespace Computer.Bus.Integration
                 var client = clientFactory.Create(serializer);
                 for (int pubCount = 1; pubCount < 50; pubCount++)
                 {
-                    Console.WriteLine("publishing...");
+                    //Console.WriteLine("publishing...");
                     client.Publish(subjectId);
                     Task.Delay(100).Wait();
                 }

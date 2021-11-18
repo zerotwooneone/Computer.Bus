@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text;
+using System.Threading.Channels;
 using Computer.Bus.Contracts.Models;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -11,11 +12,13 @@ namespace Computer.Bus.RabbitMq.Client
         private static readonly Lazy<ConnectionFactory> _connectionFactory = new(() => new ConnectionFactory() { HostName = "localhost" });
         private static readonly Lazy<IConnection> _connection =
             new(() => _connectionFactory.Value.CreateConnection());
+
         private const string BusExchange = "computer.BusExchange";
         public PublishResult Publish(string subjectId)
         {
             //todo: remove this dummy message
-            string message = "Hello World!";
+            string message = $"Hello World! {DateTime.Now:mm:ss.ffff}";
+            Console.WriteLine($"publish message {message}");
             var body = Encoding.UTF8.GetBytes(message);
 
             return Publish(subjectId, body);
@@ -69,7 +72,7 @@ namespace Computer.Bus.RabbitMq.Client
         {
             //var factory = new ConnectionFactory() { HostName = "localhost" };
             //using var connection = factory.CreateConnection();
-            /*using*/ var channel = _connection.Value.CreateModel();
+            var channel = _connection.Value.CreateModel();
             
             CreateBusExchange(channel);
             
@@ -88,12 +91,12 @@ namespace Computer.Bus.RabbitMq.Client
             void OnConsumerOnReceived(object? model, BasicDeliverEventArgs ea)
             {
                 callback(ea.Body.ToArray());
-                //channel.BasicAck(deliveryTag: ea.DeliveryTag, multiple: false);
+                channel.BasicAck(deliveryTag: ea.DeliveryTag, multiple: false);
             }
 
             consumer.Received += OnConsumerOnReceived;
             channel.BasicConsume(queue: queueName,
-                autoAck: true,
+                autoAck: false,
                 consumer: consumer);
             return new RabbitSubscription
             {
