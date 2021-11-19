@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using Computer.Bus.RabbitMq.Serialize;
 using ProtoBuf;
 
@@ -16,7 +17,9 @@ namespace Computer.Bus.Integration
         public T Deserialize<T>(byte[] bytes)
         {
             using var memStream = new MemoryStream(bytes);
-            return Serializer.Deserialize<T>(memStream);
+            var result = Serializer.Deserialize<T>(memStream);
+            //Console.WriteLine($"byte count: {bytes.Length}");
+            return result;
         }
     }
 }
