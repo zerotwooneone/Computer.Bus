@@ -20,13 +20,6 @@ var root = (CompilationUnitSyntax)tree.GetRoot();
 var modelCollector = new ModelCollector();
 modelCollector.Visit(root);
 
-var x = 0;
-
-// var members = schema?.Types.Select(t => CreateClass(t.TypeName)).ToArray() 
-//               ?? Array.Empty<MemberDeclarationSyntax>();
-//  
-// var ns = NamespaceDeclaration(ParseName("CodeGen")).AddMembers(members);
-
 var ns = modelCollector.CreateClass();
 await using var streamWriter = new StreamWriter(@"generated.cs", false);
     ns.NormalizeWhitespace().WriteTo(streamWriter);
@@ -35,26 +28,20 @@ await using var streamWriter = new StreamWriter(@"generated.cs", false);
         
 class ModelCollector : CSharpSyntaxWalker
 {
-    public Dictionary<string, List<string>> Models { get; } = new Dictionary<string, List<string>>();
+    public Dictionary<string, string?> Models { get; } = new();
     private List<ClassDeclarationSyntax> classes = new();
     public override void VisitPropertyDeclaration(PropertyDeclarationSyntax node)
     {
         var classnode = node.Parent as ClassDeclarationSyntax;
         if (!Models.ContainsKey(classnode.Identifier.ValueText))
         {
-            Models.Add(classnode.Identifier.ValueText, new List<string>());
+            Models.Add(classnode.Identifier.ValueText, null);
             classes.Add(classnode);
         }
-
-        Models[classnode.Identifier.ValueText].Add(node.Identifier.ValueText);
     }
     
     public NamespaceDeclarationSyntax CreateClass()
     {
-        //var classes = new List<ClassDeclarationSyntax>();
-        //foreach in classes
-        // var c = ClassDeclaration(Identifier(name))
-        //     .AddModifiers(Token(SyntaxKind.PublicKeyword));
         var ns = NamespaceDeclaration(ParseName("CodeGen")).AddMembers(classes.ToArray());
         return ns;
     }
