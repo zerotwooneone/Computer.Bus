@@ -42,7 +42,9 @@ class ModelCollector : CSharpSyntaxWalker
     
     public NamespaceDeclarationSyntax CreateClass()
     {
-        var ns = NamespaceDeclaration(ParseName("CodeGen")).AddMembers(classes.ToArray());
+        var classArray = classes.ToArray();
+        var members = classArray.Select(c => (MemberDeclarationSyntax)c).ToArray();
+        var ns = NamespaceDeclaration(ParseName("CodeGen")).AddMembers(members);
         return ns;
     }
 }
