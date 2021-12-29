@@ -1,9 +1,15 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.Extensions.Configuration;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 Console.WriteLine("Hello, World!");
+
+var configBuilder = new ConfigurationBuilder()
+    .AddCommandLine(args)
+    .AddJsonFile(@"Config\default.json");
+var config = configBuilder.Build();
 
 var schema = new Schema
     { Types = new List<SchemaTypes> { new(typeName: "TypeName1", properties: new[] { "Prop1" }) } };
