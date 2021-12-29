@@ -40,7 +40,7 @@ class ModelCollector : CSharpSyntaxWalker
         }
     }
     
-    public NamespaceDeclarationSyntax CreateClass()
+    public CompilationUnitSyntax CreateClass()
     {
         var classArray = classes.ToArray();
         var members = classArray.Select(c =>
@@ -53,7 +53,9 @@ class ModelCollector : CSharpSyntaxWalker
             var x = c.WithAttributeLists(attributes);
             return (MemberDeclarationSyntax)x;
         }).ToArray();
+        var name = IdentifierName("ProtoBuf");
         var ns = NamespaceDeclaration(ParseName("CodeGen")).AddMembers(members);
-        return ns;
+        var cus = CompilationUnit().AddUsings(UsingDirective(name)).AddMembers(ns);
+        return cus;
     }
 }
