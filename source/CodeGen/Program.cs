@@ -43,7 +43,16 @@ class ModelCollector : CSharpSyntaxWalker
     public NamespaceDeclarationSyntax CreateClass()
     {
         var classArray = classes.ToArray();
-        var members = classArray.Select(c => (MemberDeclarationSyntax)c).ToArray();
+        var members = classArray.Select(c =>
+        {
+            var attributes = c.AttributeLists.Add(
+                SyntaxFactory.AttributeList(SyntaxFactory.SingletonSeparatedList<AttributeSyntax>(
+                    SyntaxFactory.Attribute(SyntaxFactory.IdentifierName("ProtoContract"))
+                    //  .WithArgumentList(...)
+                )).NormalizeWhitespace());
+            var x = c.WithAttributeLists(attributes);
+            return (MemberDeclarationSyntax)x;
+        }).ToArray();
         var ns = NamespaceDeclaration(ParseName("CodeGen")).AddMembers(members);
         return ns;
     }
