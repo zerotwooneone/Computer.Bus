@@ -1,46 +1,54 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Computer.Bus.Contracts;
 using Computer.Bus.Contracts.Models;
-using Computer.Bus.RabbitMq.Serialize;
 
-namespace Computer.Bus.RabbitMq.Client
+namespace Computer.Bus.RabbitMq.Client;
+
+public class BusClient : IBusClient
 {
-    public class BusClient : IBusClient
+    private readonly ChannelAdapter _channelAdapter;
+    private readonly ISerializer _serializer;
+
+    public BusClient(
+        ChannelAdapter channelAdapter,
+        ISerializer serializer)
     {
-        private readonly QueueClient _queueClient;
-        private readonly ISerializer _serializer;
+        _channelAdapter = channelAdapter;
+        _serializer = serializer;
+    }
 
-        public BusClient(
-            QueueClient queueClient,
-            ISerializer serializer)
-        {
-            _queueClient = queueClient;
-            _serializer = serializer;
-        }
-        public PublishResult Publish(ISubjectId subjectId)
-        {
-            return _queueClient.Publish(subjectId.SubjectName);
-        }
+    public async Task<IPublishResult> Publish(string subjectId,
+        string? eventId = null, string? correlationId = null)
+    {
+        var eid = eventId ?? Guid.NewGuid().ToString();
+        var cid = correlationId ?? Guid.NewGuid().ToString();
+        var body = await _serializer.Serialize(eid, cid);
+        return await _channelAdapter.Publish(subjectId, body);
+    }
 
-        public PublishResult Publish<T>(ISubjectId subjectId, T param)
-        {
-            var body = _serializer.Serialize(param);
-            return _queueClient.Publish(subjectId.SubjectName, body);
-        }
+    public async Task<IPublishResult> Publish<T>(string subjectId,
+        T? param,
+        string? eventId = null, string? correlationId = null)
+    {
+        var eid = eventId ?? Guid.NewGuid().ToString();
+        var cid = correlationId ?? Guid.NewGuid().ToString();
+        var body = await _serializer.Serialize(param, eid, cid);
+        return await _channelAdapter.Publish(subjectId, body);
+    }
 
-        public ISubscription Subscribe(ISubjectId subjectId, Action callback)
+    public Task<ISubscription> Subscribe<T>(string subjectId, SubscribeCallback<T> callback)
+    {
+        async Task InnerCallback(byte[] b)
         {
-            return _queueClient.Subscribe(subjectId.SubjectName, callback);
-        }
-
-        public ISubscription Subscribe<T>(ISubjectId subjectId, Action<T> callback)
-        {
-            void innerCallback(byte[] b)
+            var @event = await _serializer.Deserialize<T>(b);
+            if (@event == null)
             {
-                var body = _serializer.Deserialize<T>(b);
-                callback(body);
+                return;
             }
-            return _queueClient.Subscribe(subjectId.SubjectName, innerCallback);
+            await callback(@event.Value, @event.EventId, @event.CorrelationId);
         }
+
+        return _channelAdapter.Subscribe(subjectId, InnerCallback);
     }
 }

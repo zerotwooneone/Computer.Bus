@@ -1,9 +1,7 @@
 ﻿using System;
 
-namespace Computer.Bus.Contracts.Models
+namespace Computer.Bus.Contracts.Models;
+
+public interface ISubscription : IDisposable
 {
-    public interface ISubscription : IDisposable
-    {
-        
-    };
 }

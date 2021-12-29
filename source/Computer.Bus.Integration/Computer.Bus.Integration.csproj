@@ -8,12 +8,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Computer.Bus.RabbitMq\Computer.Bus.RabbitMq.csproj" />
+        <ProjectReference Include="..\Computer.Bus.ProtobuffNet\Computer.Bus.ProtobuffNet.csproj"/>
+        <ProjectReference Include="..\Computer.Bus.RabbitMq\Computer.Bus.RabbitMq.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="MSTest.TestFramework" Version="2.2.7" />
-      <PackageReference Include="protobuf-net" Version="3.0.101" />
+        <PackageReference Include="MSTest.TestFramework" Version="2.2.7"/>
     </ItemGroup>
 
 </Project>

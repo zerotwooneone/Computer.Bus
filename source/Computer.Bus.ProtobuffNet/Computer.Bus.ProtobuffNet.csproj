@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <PackageVersion>0.0.1</PackageVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Folder Include="Model"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="protobuf-net" Version="3.0.101"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Computer.Bus.Contracts\Computer.Bus.Contracts.csproj"/>
+    </ItemGroup>
+
+</Project>

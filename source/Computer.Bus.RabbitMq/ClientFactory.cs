@@ -1,17 +1,23 @@
 ﻿using Computer.Bus.Contracts;
 using Computer.Bus.RabbitMq.Client;
-using Computer.Bus.RabbitMq.Serialize;
+using IConnectionFactory = Computer.Bus.RabbitMq.Client.IConnectionFactory;
 
-namespace Computer.Bus.RabbitMq
+namespace Computer.Bus.RabbitMq;
+
+public class ClientFactory
 {
-    public class ClientFactory
+    public IBusClient Create(
+        ISerializer serializer,
+        ChannelAdapter channelAdapter)
     {
-        public IBusClient Create(
-            ISerializer serializer,
-            QueueClient? queueClient = null)
-        {
-            var clientParam = queueClient ?? new QueueClient();
-            return new BusClient(clientParam, serializer);
-        }
+        return new BusClient(channelAdapter, serializer);
+    }
+
+    public IBusClient Create(
+        ISerializer serializer,
+        IConnectionFactory connectionFactory)
+    {
+        var clientParam = new ChannelAdapter(connectionFactory);
+        return new BusClient(clientParam, serializer);
     }
 }
