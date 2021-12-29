@@ -33,10 +33,17 @@ var subscribeDtoNameSpace = config["subscribeDtoNameSpace"];
 var subscribeDomainNameSpace = config["subscribeDomainNameSpace"];
 
 var classDef = modelCollector.CreateClass(publishDtoNameSpace,publishDomainNameSpace, subscribeDtoNameSpace, subscribeDomainNameSpace);
-await using var publishDtoWriter = new StreamWriter(@"publishDto.generated.cs", false);
-    classDef.PublishDto.NormalizeWhitespace().WriteTo(publishDtoWriter);
-await using var subscribeDtoWriter = new StreamWriter(@"subscribeDto.generated.cs", false);
-    classDef.SubscribeDto.NormalizeWhitespace().WriteTo(subscribeDtoWriter);
+
+await WriteClassFile("publishDto", classDef.PublishDto);
+await WriteClassFile("publishDomain", classDef.PublishDomain);
+await WriteClassFile("subscribeDto", classDef.SubscribeDto);
+await WriteClassFile("subscribeDomain", classDef.SubscribeDomain);
+
+async Task WriteClassFile(string className, CompilationUnitSyntax compilationUnitSyntax)
+{
+    await using var publishDtoWriter = new StreamWriter($"{className}.generated.cs", false);
+    compilationUnitSyntax.NormalizeWhitespace().WriteTo(publishDtoWriter);
+}
 
 
 internal record ClassDef(
