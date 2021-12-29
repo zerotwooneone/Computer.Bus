@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 using Microsoft.Extensions.Configuration;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
@@ -11,38 +12,50 @@ var configBuilder = new ConfigurationBuilder()
     .AddJsonFile(@"Config\default.json");
 var config = configBuilder.Build();
 
-var schema = new Schema
-    { Types = new List<SchemaTypes> { new(typeName: "TypeName1", properties: new[] { "Prop1" }) } };
+var firstPath = config["firstPath"];
 
-var members = schema?.Types.Select(t => CreateClass(t.TypeName)).ToArray() 
-              ?? Array.Empty<MemberDeclarationSyntax>();
- 
-var ns = NamespaceDeclaration(ParseName("CodeGen")).AddMembers(members);
- 
+var tree = CSharpSyntaxTree.ParseText(SourceText.From(File.ReadAllText(firstPath)));
+
+var root = (CompilationUnitSyntax)tree.GetRoot();
+var modelCollector = new ModelCollector();
+modelCollector.Visit(root);
+
+var x = 0;
+
+// var members = schema?.Types.Select(t => CreateClass(t.TypeName)).ToArray() 
+//               ?? Array.Empty<MemberDeclarationSyntax>();
+//  
+// var ns = NamespaceDeclaration(ParseName("CodeGen")).AddMembers(members);
+
+var ns = modelCollector.CreateClass();
 await using var streamWriter = new StreamWriter(@"generated.cs", false);
     ns.NormalizeWhitespace().WriteTo(streamWriter);
  
-static ClassDeclarationSyntax CreateClass(string name) =>
-    ClassDeclaration(Identifier(name))
-        .AddModifiers(Token(SyntaxKind.PublicKeyword));
+
         
-public class Schema
+class ModelCollector : CSharpSyntaxWalker
 {
-    public IReadOnlyCollection<SchemaTypes> Types { get; init; } = Array.Empty<SchemaTypes>();
-}
- 
-public class SchemaTypes
-{
-    public SchemaTypes()
+    public Dictionary<string, List<string>> Models { get; } = new Dictionary<string, List<string>>();
+    private List<ClassDeclarationSyntax> classes = new();
+    public override void VisitPropertyDeclaration(PropertyDeclarationSyntax node)
     {
-    }
+        var classnode = node.Parent as ClassDeclarationSyntax;
+        if (!Models.ContainsKey(classnode.Identifier.ValueText))
+        {
+            Models.Add(classnode.Identifier.ValueText, new List<string>());
+            classes.Add(classnode);
+        }
 
-    public SchemaTypes(string typeName, IReadOnlyCollection<string> properties)
+        Models[classnode.Identifier.ValueText].Add(node.Identifier.ValueText);
+    }
+    
+    public NamespaceDeclarationSyntax CreateClass()
     {
-        TypeName = typeName;
-        Properties = properties;
+        //var classes = new List<ClassDeclarationSyntax>();
+        //foreach in classes
+        // var c = ClassDeclaration(Identifier(name))
+        //     .AddModifiers(Token(SyntaxKind.PublicKeyword));
+        var ns = NamespaceDeclaration(ParseName("CodeGen")).AddMembers(classes.ToArray());
+        return ns;
     }
-
-    public string TypeName { get; init; } = string.Empty;
-    public IReadOnlyCollection<string> Properties { get; init; } = Array.Empty<string>();
 }
