@@ -28,33 +28,72 @@ await using var streamWriter = new StreamWriter(@"generated.cs", false);
         
 class ModelCollector : CSharpSyntaxWalker
 {
-    public Dictionary<string, string?> Models { get; } = new();
-    private List<ClassDeclarationSyntax> classes = new();
+    private ClassDeclarationSyntax? ClassDec;
+    private int PropertyCounter = 0;
     public override void VisitPropertyDeclaration(PropertyDeclarationSyntax node)
     {
-        var classnode = node.Parent as ClassDeclarationSyntax;
-        if (!Models.ContainsKey(classnode.Identifier.ValueText))
+        if (ClassDec == null)
         {
-            Models.Add(classnode.Identifier.ValueText, null);
-            classes.Add(classnode);
+            throw new NotImplementedException("no namespace was found");
         }
-    }
-    
-    public CompilationUnitSyntax CreateClass()
-    {
-        var classArray = classes.ToArray();
-        var members = classArray.Select(c =>
+
+        if (ClassDec.Identifier.ValueText != ((ClassDeclarationSyntax?)node.Parent)?.Identifier.ValueText)
         {
-            var attributes = c.AttributeLists.Add(
-                SyntaxFactory.AttributeList(SyntaxFactory.SingletonSeparatedList<AttributeSyntax>(
-                    SyntaxFactory.Attribute(SyntaxFactory.IdentifierName("ProtoContract"))
-                    //  .WithArgumentList(...)
-                )).NormalizeWhitespace());
-            var x = c.WithAttributeLists(attributes);
-            return (MemberDeclarationSyntax)x;
-        }).ToArray();
+            throw new NotImplementedException("class names do not match. nesting is not supported yet.");
+        }
+
+        PropertyCounter++;
+        var argEx = ParseExpression($"{PropertyCounter}");
+        var arg = AttributeArgument(argEx);
+        var argumentList = AttributeArgumentList(SeparatedList(new []{arg}));
+        
+        var attributes = node.AttributeLists.Add(
+            AttributeList(SingletonSeparatedList<AttributeSyntax>(
+                Attribute(IdentifierName("ProtoMember"))
+                .WithArgumentList(argumentList)
+            )).NormalizeWhitespace());
+        var newNode = node.WithAttributeLists(attributes);
+        
+        //we have to find the node to replace in the class def because it may contain a clone
+        var cNode = ClassDec.Members.First(m =>
+            m is PropertyDeclarationSyntax p && p.Identifier.ValueText == node.Identifier.ValueText);
+        ClassDec = ClassDec.ReplaceNode(
+            cNode,
+            newNode);
+        base.VisitPropertyDeclaration(node);
+    }
+
+    public override void VisitNamespaceDeclaration(NamespaceDeclarationSyntax node)
+    {
+        
+        var x = node.Parent;
+        throw new NotImplementedException("Cannot handle namespaces yet");
+        base.VisitNamespaceDeclaration(node);
+    }
+
+    public override void VisitFileScopedNamespaceDeclaration(FileScopedNamespaceDeclarationSyntax node)
+    {
+        
+        var x = node.Parent;
+        if (node.Members.First() is not ClassDeclarationSyntax c)
+        {
+            throw new NotImplementedException("Cannot handle non-root classes yet");
+        }
+
+        ClassDec = c;
+        base.VisitFileScopedNamespaceDeclaration(node);
+    }
+ 
+    public CompilationUnitSyntax CreateClass(string nameSpace = "CodeGen")
+    {
+        var attributes = ClassDec.AttributeLists.Add(
+            SyntaxFactory.AttributeList(SingletonSeparatedList(
+                Attribute(IdentifierName("ProtoContract"))
+            )).NormalizeWhitespace());
+        var x = ClassDec.WithAttributeLists(attributes);
+        var member = (MemberDeclarationSyntax)x;
         var name = IdentifierName("ProtoBuf");
-        var ns = NamespaceDeclaration(ParseName("CodeGen")).AddMembers(members);
+        var ns = NamespaceDeclaration(ParseName(nameSpace)).AddMembers(member);
         var cus = CompilationUnit().AddUsings(UsingDirective(name)).AddMembers(ns);
         return cus;
     }
