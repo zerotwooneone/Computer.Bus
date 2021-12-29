@@ -20,15 +20,18 @@ var root = (CompilationUnitSyntax)tree.GetRoot();
 var modelCollector = new ModelCollector();
 modelCollector.Visit(root);
 
-var ns = modelCollector.CreateClass();
+var (classDef, nullableDef) = modelCollector.CreateClass();
 await using var streamWriter = new StreamWriter(@"generated.cs", false);
-    ns.NormalizeWhitespace().WriteTo(streamWriter);
+    classDef.NormalizeWhitespace().WriteTo(streamWriter);
+await using var nstreamWriter = new StreamWriter(@"nullable.generated.cs", false);
+    nullableDef.NormalizeWhitespace().WriteTo(nstreamWriter);
  
 
         
 class ModelCollector : CSharpSyntaxWalker
 {
     private ClassDeclarationSyntax? ClassDec;
+    private ClassDeclarationSyntax? NullableClassDec;
     private int PropertyCounter = 0;
     public override void VisitPropertyDeclaration(PropertyDeclarationSyntax node)
     {
@@ -52,15 +55,29 @@ class ModelCollector : CSharpSyntaxWalker
                 Attribute(IdentifierName("ProtoMember"))
                 .WithArgumentList(argumentList)
             )).NormalizeWhitespace());
-        var newNode = node.WithAttributeLists(attributes);
+        var withAttributes = node.WithAttributeLists(attributes);
+        var newNode = withAttributes;
         
         //we have to find the node to replace in the class def because it may contain a clone
-        var cNode = ClassDec.Members.First(m =>
-            m is PropertyDeclarationSyntax p && p.Identifier.ValueText == node.Identifier.ValueText);
+        var cNode = FindPropertyByName(node.Identifier.ValueText, ClassDec);
         ClassDec = ClassDec.ReplaceNode(
             cNode,
             newNode);
+        
+        var nullableNode = withAttributes.WithType(NullableType(node.Type));
+        
+        var nNode = FindPropertyByName(node.Identifier.ValueText, ClassDec);
+        NullableClassDec = ClassDec.ReplaceNode(
+            nNode,
+            nullableNode);
+        
         base.VisitPropertyDeclaration(node);
+    }
+
+    private MemberDeclarationSyntax FindPropertyByName(string name, ClassDeclarationSyntax c)
+    {
+        return c.Members.First(m =>
+            m is PropertyDeclarationSyntax p && p.Identifier.ValueText == name);
     }
 
     public override void VisitNamespaceDeclaration(NamespaceDeclarationSyntax node)
@@ -81,10 +98,11 @@ class ModelCollector : CSharpSyntaxWalker
         }
 
         ClassDec = c;
+        NullableClassDec = c;
         base.VisitFileScopedNamespaceDeclaration(node);
     }
  
-    public CompilationUnitSyntax CreateClass(string nameSpace = "CodeGen")
+    public (CompilationUnitSyntax c, CompilationUnitSyntax nullable) CreateClass(string nameSpace = "CodeGen")
     {
         var attributes = ClassDec.AttributeLists.Add(
             SyntaxFactory.AttributeList(SingletonSeparatedList(
@@ -95,6 +113,17 @@ class ModelCollector : CSharpSyntaxWalker
         var name = IdentifierName("ProtoBuf");
         var ns = NamespaceDeclaration(ParseName(nameSpace)).AddMembers(member);
         var cus = CompilationUnit().AddUsings(UsingDirective(name)).AddMembers(ns);
-        return cus;
+        
+        var nattributes = NullableClassDec.AttributeLists.Add(
+            SyntaxFactory.AttributeList(SingletonSeparatedList(
+                Attribute(IdentifierName("ProtoContract"))
+            )).NormalizeWhitespace());
+        var nx = NullableClassDec.WithAttributeLists(nattributes);
+        var nmember = (MemberDeclarationSyntax)nx;
+        var nns = NamespaceDeclaration(ParseName(nameSpace)).AddMembers(nmember);
+        var ncus = CompilationUnit().AddUsings(UsingDirective(name)).AddMembers(nns);
+        
+        
+        return (cus, ncus);
     }
 }
