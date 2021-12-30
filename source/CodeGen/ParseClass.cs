@@ -30,9 +30,6 @@ public class ParseClass
             .AddUsing(protoBufUsing)
             .ChangeNameSpace(subscribeDtoNamespace)
             .AddClassAttribute(protoClassAttribute);
-
-        var dtoMapperClass = SyntaxFactory.ClassDeclaration($"{classDef.Identifier.ValueText}DtoMapper")
-            .WithModifiers(SyntaxFactory.TokenList(new []{SyntaxFactory.Token(SyntaxKind.PublicKeyword)}));
         
         var propertyCounter = 0;
         foreach (var property in properties)
@@ -42,23 +39,27 @@ public class ParseClass
             publishDto = AddProtoPropAttribute(publishDto, propertyName, propertyCounter);
             subscribeDto = AddProtoPropAttribute(subscribeDto, propertyName, propertyCounter).MakePropertyNullable(propertyName);
         }
-        
+
+        var className = classDef.Identifier.ValueText;
+        var publishMapperClass = CreateMapperClass(className, publishDtoNamespace, publishDomainNamespace, new StatementSyntax[]{});
+        var subscribeMapperClass = CreateMapperClass(className, subscribeDtoNamespace, subscribeDomainNamespace, new StatementSyntax[]{});
+
         var publishDtoMapper = SyntaxFactory.CompilationUnit()
             .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(new[]
             {
-                SyntaxFactory.FileScopedNamespaceDeclaration(SyntaxFactory.IdentifierName(publishDomainNamespace))
+                SyntaxFactory.FileScopedNamespaceDeclaration(SyntaxFactory.IdentifierName(publishDtoNamespace))
                     .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(new []
                     {
-                        dtoMapperClass
+                        publishMapperClass
                     }))
             }));
         var subscribeDtoMapper = SyntaxFactory.CompilationUnit()
             .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(new[]
             {
-                SyntaxFactory.FileScopedNamespaceDeclaration(SyntaxFactory.IdentifierName(subscribeDomainNamespace))
+                SyntaxFactory.FileScopedNamespaceDeclaration(SyntaxFactory.IdentifierName(subscribeDtoNamespace))
                     .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(new []
                     {
-                        dtoMapperClass
+                        subscribeMapperClass
                     }))
             }));
 
@@ -72,6 +73,41 @@ public class ParseClass
             subscribeDto, 
             subscribeDtoMapper, 
             subscribeDomain);
+    }
+
+    private static ClassDeclarationSyntax CreateMapperClass(string className, string dtoNamespace,
+        string domainNamespace, IEnumerable<StatementSyntax> statements)
+    {
+        var domainToDtoParams = SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(new[]
+            {
+                SyntaxFactory.Parameter(SyntaxFactory.Identifier("domain"))
+                    .WithType(SyntaxFactory.ParseTypeName($"{domainNamespace}.{className}"))
+            })
+        );
+        var dtoToDomainParams = SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(new[]
+            {
+                SyntaxFactory.Parameter(SyntaxFactory.Identifier("dto"))
+                    .WithType(SyntaxFactory.ParseTypeName($"{dtoNamespace}.{className}"))
+            })
+        );
+        var mapperClass = SyntaxFactory.ClassDeclaration($"{className}DtoMapper")
+            .WithModifiers(SyntaxFactory.TokenList(new[] { SyntaxFactory.Token(SyntaxKind.PublicKeyword) }))
+            .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(new[]
+            {
+                SyntaxFactory.MethodDeclaration(
+                        returnType: SyntaxFactory.ParseTypeName($"{domainNamespace}.{className}"),
+                        identifier: SyntaxFactory.Identifier("DtoToDomain"))
+                    .WithParameterList(dtoToDomainParams)
+                    .WithModifiers(SyntaxFactory.TokenList(new[] { SyntaxFactory.Token(SyntaxKind.PublicKeyword) }))
+                    .WithBody(SyntaxFactory.Block(statements)),
+                SyntaxFactory.MethodDeclaration(
+                        returnType: SyntaxFactory.ParseTypeName($"{dtoNamespace}.{className}"),
+                        identifier: SyntaxFactory.Identifier("DomainToDto"))
+                    .WithParameterList(domainToDtoParams)
+                    .WithModifiers(SyntaxFactory.TokenList(new[] { SyntaxFactory.Token(SyntaxKind.PublicKeyword) }))
+                    .WithBody(SyntaxFactory.Block(statements))
+            }));
+        return mapperClass;
     }
 
     private CompilationUnitSyntax AddProtoPropAttribute(CompilationUnitSyntax root,
