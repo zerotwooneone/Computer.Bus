@@ -30,6 +30,9 @@ public class ParseClass
             .AddUsing(protoBufUsing)
             .ChangeNameSpace(subscribeDtoNamespace)
             .AddClassAttribute(protoClassAttribute);
+
+        var assignDtoToDomain = new List<ExpressionSyntax>();
+        var assignDomainToDto = new List<ExpressionSyntax>();
         
         var propertyCounter = 0;
         foreach (var property in properties)
@@ -38,11 +41,20 @@ public class ParseClass
             propertyCounter++;
             publishDto = AddProtoPropAttribute(publishDto, propertyName, propertyCounter);
             subscribeDto = AddProtoPropAttribute(subscribeDto, propertyName, propertyCounter).MakePropertyNullable(propertyName);
+            
+            assignDtoToDomain.Add(SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+                SyntaxFactory.IdentifierName(propertyName),
+                SyntaxFactory.IdentifierName($"dto.{propertyName}")
+                ));
+            assignDomainToDto.Add(SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+                SyntaxFactory.IdentifierName(propertyName),
+                SyntaxFactory.IdentifierName($"domain.{propertyName}")
+            ));
         }
 
         var className = classDef.Identifier.ValueText;
-        var publishMapperClass = CreateMapperClass(className, publishDtoNamespace, publishDomainNamespace, new StatementSyntax[]{});
-        var subscribeMapperClass = CreateMapperClass(className, subscribeDtoNamespace, subscribeDomainNamespace, new StatementSyntax[]{});
+        var publishMapperClass = CreateMapperClass(className, publishDtoNamespace, publishDomainNamespace, assignDtoToDomain, assignDomainToDto);
+        var subscribeMapperClass = CreateMapperClass(className, subscribeDtoNamespace, subscribeDomainNamespace, assignDtoToDomain, assignDomainToDto);
 
         var publishDtoMapper = SyntaxFactory.CompilationUnit()
             .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(new[]
@@ -76,7 +88,9 @@ public class ParseClass
     }
 
     private static ClassDeclarationSyntax CreateMapperClass(string className, string dtoNamespace,
-        string domainNamespace, IEnumerable<StatementSyntax> statements)
+        string domainNamespace, 
+        IEnumerable<ExpressionSyntax> assignDtoToDomain,
+        IEnumerable<ExpressionSyntax> assignDomainToDto)
     {
         var domainToDtoParams = SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(new[]
             {
@@ -99,13 +113,19 @@ public class ParseClass
                         identifier: SyntaxFactory.Identifier("DtoToDomain"))
                     .WithParameterList(dtoToDomainParams)
                     .WithModifiers(SyntaxFactory.TokenList(new[] { SyntaxFactory.Token(SyntaxKind.PublicKeyword) }))
-                    .WithBody(SyntaxFactory.Block(statements)),
+                    .WithBody(SyntaxFactory.Block(
+                        SyntaxFactory.ReturnStatement(SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName($"{domainNamespace}.{className}"))
+                            .WithInitializer(SyntaxFactory.InitializerExpression(SyntaxKind.ObjectInitializerExpression,SyntaxFactory.SeparatedList<ExpressionSyntax>(assignDtoToDomain))))
+                        )),
                 SyntaxFactory.MethodDeclaration(
                         returnType: SyntaxFactory.ParseTypeName($"{dtoNamespace}.{className}"),
                         identifier: SyntaxFactory.Identifier("DomainToDto"))
                     .WithParameterList(domainToDtoParams)
                     .WithModifiers(SyntaxFactory.TokenList(new[] { SyntaxFactory.Token(SyntaxKind.PublicKeyword) }))
-                    .WithBody(SyntaxFactory.Block(statements))
+                    .WithBody(SyntaxFactory.Block(
+                        SyntaxFactory.ReturnStatement(SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName($"{domainNamespace}.{className}"))
+                            .WithInitializer(SyntaxFactory.InitializerExpression(SyntaxKind.ObjectInitializerExpression,SyntaxFactory.SeparatedList<ExpressionSyntax>(assignDomainToDto))))
+                    ))
             }));
         return mapperClass;
     }
