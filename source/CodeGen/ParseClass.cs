@@ -84,7 +84,8 @@ public class ParseClass
             publishDomain, 
             subscribeDto, 
             subscribeDtoMapper, 
-            subscribeDomain);
+            subscribeDomain,
+            classDef.Identifier.ValueText);
     }
 
     private static ClassDeclarationSyntax CreateMapperClass(string className, string dtoNamespace,

@@ -58,4 +58,5 @@ internal record ClassDef(
     CompilationUnitSyntax PublishDomain,
     CompilationUnitSyntax SubscribeDto,
     CompilationUnitSyntax SubscribeDtoMapper,
-    CompilationUnitSyntax SubscribeDomain);
+    CompilationUnitSyntax SubscribeDomain,
+    string ClassName);
