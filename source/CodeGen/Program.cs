@@ -1,4 +1,5 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using CodeGen;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
@@ -13,12 +14,6 @@ var config = configBuilder.Build();
 
 var firstPath = config["firstPath"];
 
-var tree = CSharpSyntaxTree.ParseText(SourceText.From(File.ReadAllText(firstPath)));
-
-var root = (CompilationUnitSyntax)tree.GetRoot();
-var modelCollector = new ModelCollector();
-modelCollector.Visit(root);
-
 if (string.IsNullOrWhiteSpace(config["publishDtoNameSpace"]) ||
     string.IsNullOrWhiteSpace(config["publishDomainNameSpace"]) ||
     string.IsNullOrWhiteSpace(config["subscribeDtoNameSpace"]) ||
@@ -32,7 +27,16 @@ var publishDomainNameSpace = config["publishDomainNameSpace"];
 var subscribeDtoNameSpace = config["subscribeDtoNameSpace"];
 var subscribeDomainNameSpace = config["subscribeDomainNameSpace"];
 
-var classDef = modelCollector.CreateClass(publishDtoNameSpace,publishDomainNameSpace, subscribeDtoNameSpace, subscribeDomainNameSpace);
+var tree = CSharpSyntaxTree.ParseText(SourceText.From(File.ReadAllText(firstPath)));
+
+var root = (CompilationUnitSyntax)tree.GetRoot();
+var p = new ParseClass();
+var classDef = p.CreateClass(root,
+    publishDtoNameSpace,
+    publishDomainNameSpace,
+    subscribeDtoNameSpace,
+    subscribeDomainNameSpace);
+
 
 await WriteClassFile("publishDto", classDef.PublishDto);
 await WriteClassFile("publishDomain", classDef.PublishDomain);
