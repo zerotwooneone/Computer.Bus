@@ -30,6 +30,10 @@ public class ParseClass
             .AddUsing(protoBufUsing)
             .ChangeNameSpace(subscribeDtoNamespace)
             .AddClassAttribute(protoClassAttribute);
+
+        var dtoMapperClass = SyntaxFactory.ClassDeclaration($"{classDef.Identifier.ValueText}DtoMapper")
+            .WithModifiers(SyntaxFactory.TokenList(new []{SyntaxFactory.Token(SyntaxKind.PublicKeyword)}));
+        
         var propertyCounter = 0;
         foreach (var property in properties)
         {
@@ -38,16 +42,36 @@ public class ParseClass
             publishDto = AddProtoPropAttribute(publishDto, propertyName, propertyCounter);
             subscribeDto = AddProtoPropAttribute(subscribeDto, propertyName, propertyCounter).MakePropertyNullable(propertyName);
         }
+        
+        var publishDtoMapper = SyntaxFactory.CompilationUnit()
+            .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(new[]
+            {
+                SyntaxFactory.FileScopedNamespaceDeclaration(SyntaxFactory.IdentifierName(publishDomainNamespace))
+                    .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(new []
+                    {
+                        dtoMapperClass
+                    }))
+            }));
+        var subscribeDtoMapper = SyntaxFactory.CompilationUnit()
+            .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(new[]
+            {
+                SyntaxFactory.FileScopedNamespaceDeclaration(SyntaxFactory.IdentifierName(subscribeDomainNamespace))
+                    .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(new []
+                    {
+                        dtoMapperClass
+                    }))
+            }));
 
         var publishDomain = root.ChangeNameSpace(publishDomainNamespace);
         var subscribeDomain = root.ChangeNameSpace(subscribeDomainNamespace);
 
         return new ClassDef(
             publishDto, 
-            SyntaxFactory.CompilationUnit(), 
+            publishDtoMapper, 
             publishDomain, 
             subscribeDto, 
-            SyntaxFactory.CompilationUnit(), subscribeDomain);
+            subscribeDtoMapper, 
+            subscribeDomain);
     }
 
     private CompilationUnitSyntax AddProtoPropAttribute(CompilationUnitSyntax root,

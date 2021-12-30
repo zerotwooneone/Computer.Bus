@@ -40,8 +40,10 @@ var classDef = p.CreateClass(root,
 
 await WriteClassFile("publishDto", classDef.PublishDto);
 await WriteClassFile("publishDomain", classDef.PublishDomain);
+await WriteClassFile("publishMapper", classDef.PublishDtoMapper);
 await WriteClassFile("subscribeDto", classDef.SubscribeDto);
 await WriteClassFile("subscribeDomain", classDef.SubscribeDomain);
+await WriteClassFile("subscribeMapper", classDef.SubscribeDtoMapper);
 
 async Task WriteClassFile(string className, CompilationUnitSyntax compilationUnitSyntax)
 {
