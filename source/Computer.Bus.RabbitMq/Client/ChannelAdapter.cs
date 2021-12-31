@@ -37,7 +37,16 @@ public class ChannelAdapter
 
     private static string GetBusRoutingKey(string subjectId)
     {
+        var sanitized = SanitizeSubjectForRouting(subjectId);
         return $"computer.bus.subject.{subjectId}";
+    }
+
+    private static string SanitizeSubjectForRouting(string subjectId)
+    {
+        const string replaceChar = "%";
+        return subjectId
+            .Replace(replaceChar, $"{replaceChar}37")
+            .Replace(".", $"{replaceChar}46");
     }
 
     public async Task<ISubscription> Subscribe(string subjectId,
