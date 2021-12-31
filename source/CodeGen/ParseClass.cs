@@ -25,11 +25,13 @@ public class ParseClass
         var publishDto = root
             .AddUsing(protoBufUsing)
             .ChangeNameSpace(publishDtoNamespace)
-            .AddClassAttribute(protoClassAttribute);
+            .AddClassAttribute(protoClassAttribute)
+            .MakePartial();
         var subscribeDto = root
             .AddUsing(protoBufUsing)
             .ChangeNameSpace(subscribeDtoNamespace)
-            .AddClassAttribute(protoClassAttribute);
+            .AddClassAttribute(protoClassAttribute)
+            .MakePartial();
 
         var assignDtoToDomain = new List<ExpressionSyntax>();
         var assignDomainToDto = new List<ExpressionSyntax>();
@@ -75,8 +77,12 @@ public class ParseClass
                     }))
             }));
 
-        var publishDomain = root.ChangeNameSpace(publishDomainNamespace);
-        var subscribeDomain = root.ChangeNameSpace(subscribeDomainNamespace);
+        var publishDomain = root
+            .ChangeNameSpace(publishDomainNamespace)
+            .MakePartial();
+        var subscribeDomain = root
+            .ChangeNameSpace(subscribeDomainNamespace)
+            .MakePartial();
 
         return new ClassDef(
             publishDto, 
@@ -107,7 +113,7 @@ public class ParseClass
             })
         );
         var mapperClass = SyntaxFactory.ClassDeclaration(CreateMapperName(className))
-            .WithModifiers(SyntaxFactory.TokenList(new[] { SyntaxFactory.Token(SyntaxKind.PublicKeyword) }))
+            .WithModifiers(SyntaxFactory.TokenList(new[] { SyntaxFactory.Token(SyntaxKind.PublicKeyword), SyntaxFactory.Token(SyntaxKind.PartialKeyword) }))
             .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(new[]
             {
                 SyntaxFactory.MethodDeclaration(
@@ -230,6 +236,15 @@ public static class CompilationUnitSyntaxExtensions
             foundNamespace,
             newNamespace);
     }
+
+    public static CompilationUnitSyntax MakePartial(this CompilationUnitSyntax root)
+    {
+        var foundNamespace = root.FindTargetNamespace();
+        var newNamespace = foundNamespace.MakePartial();
+        return root.ReplaceNode(
+            foundNamespace,
+            newNamespace);
+    }
 }
 
 public static class NamespaceSyntaxExtensions
@@ -256,6 +271,15 @@ public static class NamespaceSyntaxExtensions
     {
         var foundClass = namespaceDec.FindTargetClass();
         var newClass = foundClass.MakePropertyNullable(propertyName);
+        return namespaceDec.ReplaceNode(
+            foundClass,
+            newClass);
+    }
+    
+    public static BaseNamespaceDeclarationSyntax MakePartial(this BaseNamespaceDeclarationSyntax namespaceDec)
+    {
+        var foundClass = namespaceDec.FindTargetClass();
+        var newClass = foundClass.MakePartial();
         return namespaceDec.ReplaceNode(
             foundClass,
             newClass);
@@ -293,5 +317,15 @@ public static class ClassSyntaxExtensions
         return classDec.Members
             .OfType<PropertyDeclarationSyntax>()
             .First(p => p.Identifier.ValueText == propertyName);
+    }
+    
+    public static ClassDeclarationSyntax MakePartial(this ClassDeclarationSyntax classDec)
+    {
+        var partialToken = SyntaxFactory.Token(SyntaxKind.PartialKeyword);
+        if (classDec.Modifiers.Any(m => m.ValueText == partialToken.ValueText))
+        {
+            return classDec;
+        }
+        return classDec.AddModifiers(partialToken);
     }
 }
