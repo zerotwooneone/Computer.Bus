@@ -1,2 +1,7 @@
 ﻿{
+  "pathToTargetClass": "C:\\Users\\userName\\source\\repos\\projectName\\ExampleClass.cs",
+  "publishDtoNameSpace": "publishDtoNameSpace",
+  "publishDomainNameSpace": "publishDomainNameSpace",
+  "subscribeDtoNameSpace": "subscribeDtoNameSpace",
+  "subscribeDomainNameSpace": "subscribeDomainNameSpace"
 }

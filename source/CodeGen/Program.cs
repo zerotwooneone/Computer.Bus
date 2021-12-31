@@ -12,7 +12,11 @@ var configBuilder = new ConfigurationBuilder()
     .AddJsonFile(@"Config\default.json");
 var config = configBuilder.Build();
 
-var firstPath = config["firstPath"];
+var pathToTargetClass = config["pathToTargetClass"];
+if (string.IsNullOrWhiteSpace(pathToTargetClass))
+{
+    throw new ArgumentException("missing target path config");
+}
 
 if (string.IsNullOrWhiteSpace(config["publishDtoNameSpace"]) ||
     string.IsNullOrWhiteSpace(config["publishDomainNameSpace"]) ||
@@ -27,7 +31,7 @@ var publishDomainNameSpace = config["publishDomainNameSpace"];
 var subscribeDtoNameSpace = config["subscribeDtoNameSpace"];
 var subscribeDomainNameSpace = config["subscribeDomainNameSpace"];
 
-var tree = CSharpSyntaxTree.ParseText(SourceText.From(File.ReadAllText(firstPath)));
+var tree = CSharpSyntaxTree.ParseText(SourceText.From(File.ReadAllText(pathToTargetClass)));
 
 var root = (CompilationUnitSyntax)tree.GetRoot();
 var p = new ParseClass();
