@@ -38,7 +38,7 @@ public class ChannelAdapter
     private static string GetBusRoutingKey(string subjectId)
     {
         var sanitized = SanitizeSubjectForRouting(subjectId);
-        return $"computer.bus.subject.{subjectId}";
+        return $"computer.bus.subject.{sanitized}";
     }
 
     private static string SanitizeSubjectForRouting(string subjectId)
