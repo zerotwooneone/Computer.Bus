@@ -3,5 +3,6 @@
   "publishDtoNameSpace": "publishDtoNameSpace",
   "publishDomainNameSpace": "publishDomainNameSpace",
   "subscribeDtoNameSpace": "subscribeDtoNameSpace",
-  "subscribeDomainNameSpace": "subscribeDomainNameSpace"
+  "subscribeDomainNameSpace": "subscribeDomainNameSpace",
+  "outPutPath": "../../../Out",
 }

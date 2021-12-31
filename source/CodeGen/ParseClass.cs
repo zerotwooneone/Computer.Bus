@@ -85,7 +85,8 @@ public class ParseClass
             subscribeDto, 
             subscribeDtoMapper, 
             subscribeDomain,
-            classDef.Identifier.ValueText);
+            className,
+            CreateMapperName(className));
     }
 
     private static ClassDeclarationSyntax CreateMapperClass(string className, string dtoNamespace,
@@ -105,7 +106,7 @@ public class ParseClass
                     .WithType(SyntaxFactory.ParseTypeName($"{dtoNamespace}.{className}"))
             })
         );
-        var mapperClass = SyntaxFactory.ClassDeclaration($"{className}DtoMapper")
+        var mapperClass = SyntaxFactory.ClassDeclaration(CreateMapperName(className))
             .WithModifiers(SyntaxFactory.TokenList(new[] { SyntaxFactory.Token(SyntaxKind.PublicKeyword) }))
             .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(new[]
             {
@@ -129,6 +130,11 @@ public class ParseClass
                     ))
             }));
         return mapperClass;
+    }
+
+    private static string CreateMapperName(string className)
+    {
+        return $"{className}Mapper";
     }
 
     private CompilationUnitSyntax AddProtoPropAttribute(CompilationUnitSyntax root,

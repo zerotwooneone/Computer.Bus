@@ -31,6 +31,17 @@ var publishDomainNameSpace = config["publishDomainNameSpace"];
 var subscribeDtoNameSpace = config["subscribeDtoNameSpace"];
 var subscribeDomainNameSpace = config["subscribeDomainNameSpace"];
 
+if (string.IsNullOrWhiteSpace(config["outPutPath"]))
+{
+    throw new ArgumentException("Missing output path config");
+}
+
+var outPutDirectory = Directory.CreateDirectory(config["outPutPath"]);
+if (outPutDirectory == null || !outPutDirectory.Exists)
+{
+    throw new ArgumentException("Something went wrong creating the output directory");
+}
+
 var tree = CSharpSyntaxTree.ParseText(SourceText.From(File.ReadAllText(pathToTargetClass)));
 
 var root = (CompilationUnitSyntax)tree.GetRoot();
@@ -41,17 +52,34 @@ var classDef = p.CreateClass(root,
     subscribeDtoNameSpace,
     subscribeDomainNameSpace);
 
+var pubDtoDirectory =
+    Directory.CreateDirectory(Path.Combine(outPutDirectory.FullName, SanitizeNamespaceToPath(publishDtoNameSpace)));
+var pubDomainDirectory =
+    Directory.CreateDirectory(Path.Combine(outPutDirectory.FullName, SanitizeNamespaceToPath(publishDomainNameSpace)));
+var subDtoDirectory =
+    Directory.CreateDirectory(Path.Combine(outPutDirectory.FullName, SanitizeNamespaceToPath(subscribeDtoNameSpace)));
+var subDomainDirectory =
+    Directory.CreateDirectory(Path.Combine(outPutDirectory.FullName, SanitizeNamespaceToPath(subscribeDomainNameSpace)));
 
-await WriteClassFile("publishDto", classDef.PublishDto);
-await WriteClassFile("publishDomain", classDef.PublishDomain);
-await WriteClassFile("publishMapper", classDef.PublishDtoMapper);
-await WriteClassFile("subscribeDto", classDef.SubscribeDto);
-await WriteClassFile("subscribeDomain", classDef.SubscribeDomain);
-await WriteClassFile("subscribeMapper", classDef.SubscribeDtoMapper);
+await WriteClassFile(classDef.ClassName, classDef.PublishDto, pubDtoDirectory.FullName);
+await WriteClassFile(classDef.MapperClassName, classDef.PublishDtoMapper, pubDtoDirectory.FullName);
+await WriteClassFile(classDef.ClassName, classDef.PublishDomain, pubDomainDirectory.FullName);
 
-async Task WriteClassFile(string className, CompilationUnitSyntax compilationUnitSyntax)
+await WriteClassFile(classDef.ClassName, classDef.SubscribeDto, subDtoDirectory.FullName);
+await WriteClassFile(classDef.MapperClassName, classDef.SubscribeDtoMapper, subDtoDirectory.FullName);
+await WriteClassFile(classDef.ClassName, classDef.SubscribeDomain, subDomainDirectory.FullName);
+
+
+string SanitizeNamespaceToPath(string @namespace)
 {
-    await using var publishDtoWriter = new StreamWriter($"{className}.generated.cs", false);
+    return @namespace.Replace(".", "_");
+}
+
+async Task WriteClassFile(string className, CompilationUnitSyntax compilationUnitSyntax, string directoryPath)
+{
+    var fileName = $"{className}.generated.cs";
+    var fullPath = Path.Combine(directoryPath, fileName);
+    await using var publishDtoWriter = new StreamWriter(fullPath, false);
     compilationUnitSyntax.NormalizeWhitespace().WriteTo(publishDtoWriter);
 }
 
@@ -63,4 +91,5 @@ internal record ClassDef(
     CompilationUnitSyntax SubscribeDto,
     CompilationUnitSyntax SubscribeDtoMapper,
     CompilationUnitSyntax SubscribeDomain,
-    string ClassName);
+    string ClassName,
+    string MapperClassName);
