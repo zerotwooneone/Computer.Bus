@@ -1,6 +1,7 @@
 ﻿using Computer.Bus.Contracts;
 using Computer.Bus.RabbitMq.Client;
-using IConnectionFactory = Computer.Bus.RabbitMq.Client.IConnectionFactory;
+using Computer.Bus.RabbitMq.Contracts;
+using IConnectionFactory = Computer.Bus.RabbitMq.Contracts.IConnectionFactory;
 
 namespace Computer.Bus.RabbitMq;
 

@@ -5,19 +5,12 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-        <PackageVersion>0.0.1</PackageVersion>
+        <PackageVersion>0.0.3</PackageVersion>
     </PropertyGroup>
 
     <ItemGroup>
-        <Folder Include="Model"/>
-    </ItemGroup>
-
-    <ItemGroup>
-        <PackageReference Include="protobuf-net" Version="3.0.101"/>
-    </ItemGroup>
-
-    <ItemGroup>
-        <ProjectReference Include="..\Computer.Bus.Contracts\Computer.Bus.Contracts.csproj"/>
+        <PackageReference Include="computer.bus.rabbitmq" Version="0.0.8" />
+        <PackageReference Include="protobuf-net" Version="3.0.101" />
     </ItemGroup>
 
 </Project>

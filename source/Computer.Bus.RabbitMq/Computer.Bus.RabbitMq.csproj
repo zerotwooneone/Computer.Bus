@@ -4,14 +4,11 @@
         <TargetFramework>net6.0</TargetFramework>
         <Nullable>enable</Nullable>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-        <PackageVersion>0.0.6</PackageVersion>
+        <PackageVersion>0.0.8</PackageVersion>
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Computer.Bus.Contracts\Computer.Bus.Contracts.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
+        <PackageReference Include="computer.bus.contracts" Version="0.0.7" />
         <PackageReference Include="RabbitMQ.Client" Version="6.2.2" />
     </ItemGroup>
 

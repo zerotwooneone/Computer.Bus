@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Computer.Bus.Contracts.Models;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using IConnectionFactory = Computer.Bus.RabbitMq.Contracts.IConnectionFactory;
 
 namespace Computer.Bus.RabbitMq.Client;
 

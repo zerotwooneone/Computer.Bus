@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Computer.Bus.Contracts;
 using Computer.Bus.Contracts.Models;
+using Computer.Bus.RabbitMq.Contracts;
 
 namespace Computer.Bus.RabbitMq.Client;
 
@@ -24,29 +25,61 @@ public class BusClient : IBusClient
         var eid = eventId ?? Guid.NewGuid().ToString();
         var cid = correlationId ?? Guid.NewGuid().ToString();
         var body = await _serializer.Serialize(eid, cid);
+        if (body == null)
+        {
+            return PublishResult.CreateError("Something went wrong while serializing");
+        }
         return await _channelAdapter.Publish(subjectId, body);
     }
 
-    public async Task<IPublishResult> Publish<T>(string subjectId,
-        T? param,
+    public async Task<IPublishResult> Publish(string subjectId,
+        object param, Type type,
         string? eventId = null, string? correlationId = null)
     {
         var eid = eventId ?? Guid.NewGuid().ToString();
         var cid = correlationId ?? Guid.NewGuid().ToString();
-        var body = await _serializer.Serialize(param, eid, cid);
+        var body = await _serializer.Serialize(param, type, eid, cid);
+        if (body == null)
+        {
+            return PublishResult.CreateError("Serialization failed");
+        }
         return await _channelAdapter.Publish(subjectId, body);
     }
-
-    public Task<ISubscription> Subscribe<T>(string subjectId, SubscribeCallback<T> callback)
+    // public async Task<IPublishResult> Publish<T>(string subjectId,
+    //     T? param,
+    //     string? eventId = null, string? correlationId = null)
+    // {
+    //     var eid = eventId ?? Guid.NewGuid().ToString();
+    //     var cid = correlationId ?? Guid.NewGuid().ToString();
+    //     var body = await _serializer.Serialize(param, eid, cid);
+    //     return await _channelAdapter.Publish(subjectId, body);
+    // }
+    
+    public Task<ISubscription> Subscribe(string subjectId, Type type, SubscribeCallbackP callback)
     {
         async Task InnerCallback(byte[] b)
         {
-            var @event = await _serializer.Deserialize<T>(b);
+            var @event = await _serializer.Deserialize(b, type);
             if (@event == null)
             {
                 return;
             }
-            await callback(@event.Value, @event.EventId, @event.CorrelationId);
+            await callback(@event.Payload, type, @event.EventId, @event.CorrelationId);
+        }
+
+        return _channelAdapter.Subscribe(subjectId, InnerCallback);
+    }
+    
+    public Task<ISubscription> Subscribe(string subjectId,SubscribeCallbackNp callback)
+    {
+        async Task InnerCallback(byte[] b)
+        {
+            var @event = await _serializer.Deserialize(b);
+            if (@event == null)
+            {
+                return;
+            }
+            await callback(@event.EventId, @event.CorrelationId);
         }
 
         return _channelAdapter.Subscribe(subjectId, InnerCallback);

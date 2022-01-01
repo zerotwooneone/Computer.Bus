@@ -8,12 +8,11 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Computer.Bus.ProtobuffNet\Computer.Bus.ProtobuffNet.csproj"/>
-        <ProjectReference Include="..\Computer.Bus.RabbitMq\Computer.Bus.RabbitMq.csproj"/>
+        <PackageReference Include="MSTest.TestFramework" Version="2.2.7" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="MSTest.TestFramework" Version="2.2.7"/>
+      <ProjectReference Include="..\Computer.Bus.ProtobuffNet\Computer.Bus.ProtobuffNet.csproj" />
     </ItemGroup>
 
 </Project>

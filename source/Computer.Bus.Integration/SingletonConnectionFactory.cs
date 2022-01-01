@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Threading.Tasks;
 using RabbitMQ.Client;
-using IConnectionFactory = Computer.Bus.RabbitMq.Client.IConnectionFactory;
+using IConnectionFactory = Computer.Bus.RabbitMq.Contracts.IConnectionFactory;
 
 namespace Computer.Bus.Integration;
 
-public class SingletonConnectionFactory : IConnectionFactory
+public class SingletonConnectionFactory : RabbitMq.Contracts.IConnectionFactory
 {
     private static readonly Lazy<ConnectionFactory> ConnectionFactory = new(() => new ConnectionFactory()
         { HostName = "localhost", DispatchConsumersAsync = true });

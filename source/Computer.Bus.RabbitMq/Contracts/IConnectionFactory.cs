@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
 using RabbitMQ.Client;
 
-namespace Computer.Bus.RabbitMq.Client;
+namespace Computer.Bus.RabbitMq.Contracts;
 
 public interface IConnectionFactory
 {
