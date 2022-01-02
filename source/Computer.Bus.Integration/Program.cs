@@ -7,12 +7,10 @@ using Computer.Bus.Contracts;
 using Computer.Bus.Domain;
 using Computer.Bus.Domain.Contracts;
 using Computer.Bus.ProtobuffNet;
-using Computer.Bus.ProtobuffNet.Model;
 using Computer.Bus.RabbitMq;
 using Computer.Bus.RabbitMq.Contracts;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ProtoBuf;
-using publishDtoNameSpace;
 using IPublishResult = Computer.Bus.Contracts.Models.IPublishResult;
 
 namespace Computer.Bus.Integration;
@@ -36,9 +34,9 @@ internal class Program
         var serializer = new ProtoSerializer();
         var tests = new Test[]
         {
-            //new Test(()=>ParameterlessTest(serializer), nameof(ParameterlessTest)), 
-            //new(() => SerializeTest(serializer), nameof(SerializeTest)),
-            //new(() => PayloadTest(serializer), nameof(PayloadTest)),
+            new Test(()=>ParameterlessTest(serializer), nameof(ParameterlessTest)), 
+            new(() => SerializeTest(serializer), nameof(SerializeTest)),
+            new(() => PayloadTest(serializer), nameof(PayloadTest)),
             new(() => DomainTest(serializer), nameof(DomainTest))
         };
         var failures = 0;
@@ -357,12 +355,13 @@ internal class Program
                 {
                     var eventId = Guid.NewGuid().ToString();
                     var correlationId = Guid.NewGuid().ToString();
-                    await client.Publish(subjectName, new publishDomainNameSpace.ExampleClass
+                    var result = await client.Publish(subjectName, new publishDomainNameSpace.ExampleClass
                     {
                         SomeOtherTest = new ulong[1],
                         Test = "something"
                     }, typeof(publishDomainNameSpace.ExampleClass), 
                         eventId, correlationId);
+                    Assert.IsTrue(result.Success);
                     Task.Delay(100).Wait();
                 }
 
@@ -393,7 +392,7 @@ internal class Program
 
 internal class MapperFactory : IMapperFactory, IMapper
 {
-    private readonly publishDtoNameSpace.ExampleClassMapper publishMapper = new ExampleClassMapper();
+    private readonly publishDtoNameSpace.ExampleClassMapper publishMapper = new publishDtoNameSpace.ExampleClassMapper();
 
     private readonly subscribeDtoNameSpace.ExampleClassMapper subscribeMapper =
         new subscribeDtoNameSpace.ExampleClassMapper();
