@@ -131,7 +131,7 @@ public class ParseClass
                     .WithParameterList(domainToDtoParams)
                     .WithModifiers(SyntaxFactory.TokenList(new[] { SyntaxFactory.Token(SyntaxKind.PublicKeyword) }))
                     .WithBody(SyntaxFactory.Block(
-                        SyntaxFactory.ReturnStatement(SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName($"{domainNamespace}.{className}"))
+                        SyntaxFactory.ReturnStatement(SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName($"{dtoNamespace}.{className}"))
                             .WithInitializer(SyntaxFactory.InitializerExpression(SyntaxKind.ObjectInitializerExpression,SyntaxFactory.SeparatedList<ExpressionSyntax>(assignDomainToDto))))
                     ))
             }));

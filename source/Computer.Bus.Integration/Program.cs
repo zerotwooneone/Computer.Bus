@@ -4,12 +4,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Computer.Bus.Contracts;
-using Computer.Bus.Contracts.Models;
+using Computer.Bus.Domain;
+using Computer.Bus.Domain.Contracts;
 using Computer.Bus.ProtobuffNet;
+using Computer.Bus.ProtobuffNet.Model;
 using Computer.Bus.RabbitMq;
 using Computer.Bus.RabbitMq.Contracts;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ProtoBuf;
+using publishDtoNameSpace;
+using IPublishResult = Computer.Bus.Contracts.Models.IPublishResult;
 
 namespace Computer.Bus.Integration;
 
@@ -32,9 +36,10 @@ internal class Program
         var serializer = new ProtoSerializer();
         var tests = new Test[]
         {
-            new Test(()=>ParameterlessTest(serializer), nameof(ParameterlessTest)), 
-            new(() => SerializeTest(serializer), nameof(SerializeTest)),
-            new(() => PayloadTest(serializer), nameof(PayloadTest))
+            //new Test(()=>ParameterlessTest(serializer), nameof(ParameterlessTest)), 
+            //new(() => SerializeTest(serializer), nameof(SerializeTest)),
+            //new(() => PayloadTest(serializer), nameof(PayloadTest)),
+            new(() => DomainTest(serializer), nameof(DomainTest))
         };
         var failures = 0;
         for (var index = 0; index < tests.Length; index++)
@@ -274,6 +279,105 @@ internal class Program
         Assert.AreEqual(expectedCallbacks, publishResults.Count);
     }
 
+    private async Task DomainTest(ISerializer serializer)
+    {
+        var listenStarted = new TaskCompletionSource();
+        var publishCompleted = new TaskCompletionSource();
+        var callbackCount = 0;
+        
+        var mapperFactory = new MapperFactory();
+        const string subjectName = "domain subject name";
+
+        async Task Listen()
+        {
+            try
+            {
+                var connectionFactory = new SingletonConnectionFactory();
+                var clientFactory = new ClientFactory();
+                var dtoClient = clientFactory.Create(serializer, connectionFactory);
+                var initializer = new Domain.Initializer();
+                var domainConfig = new DomainBusConfig(initializer);
+                
+                var registrations = new[]
+                {
+                    new SubjectRegistration(subjectName, typeof(subscribeDtoNameSpace.ExampleClass))
+                };
+                var maps = new[]
+                {
+                    new MapRegistration(typeof(subscribeDomainNameSpace.ExampleClass),
+                    typeof(subscribeDtoNameSpace.ExampleClass),
+                    typeof(subscribeDtoNameSpace.ExampleClassMapper))
+                };
+                domainConfig.Register(registrations, maps);
+                
+                var client = new Domain.Bus(dtoClient, mapperFactory, initializer);
+
+                async Task Callback()
+                {
+                    callbackCount++;
+                }
+
+                using var subscription = await client.Subscribe(subjectName,typeof(subscribeDomainNameSpace.ExampleClass), (e, t,eid,cid) => Callback());
+                listenStarted.TrySetResult();
+
+                await publishCompleted.Task;
+            }
+            catch (Exception e)
+            {
+                listenStarted.TrySetException(e);
+                throw;
+            }
+        }
+
+        const int expectedCallbacks = 50;
+
+        async Task Send()
+        {
+            try
+            {
+                var connectionFactory = new SingletonConnectionFactory();
+                var clientFactory = new ClientFactory();
+                var dtoClient = clientFactory.Create(serializer, connectionFactory);
+                var initializer = new Domain.Initializer();
+                var domainConfig = new DomainBusConfig(initializer);
+                var registrations = new[]
+                {
+                    new SubjectRegistration(subjectName, typeof(publishDtoNameSpace.ExampleClass))
+                };
+                var maps = new[]
+                {
+                    new MapRegistration(typeof(publishDomainNameSpace.ExampleClass),
+                        typeof(publishDtoNameSpace.ExampleClass),
+                        typeof(publishDtoNameSpace.ExampleClassMapper))
+                };
+                domainConfig.Register(registrations, maps);
+                var client = new Domain.Bus(dtoClient, mapperFactory, initializer);
+                await listenStarted.Task;
+                for (var pubCount = 0; pubCount < expectedCallbacks; pubCount++)
+                {
+                    var eventId = Guid.NewGuid().ToString();
+                    var correlationId = Guid.NewGuid().ToString();
+                    await client.Publish(subjectName, new publishDomainNameSpace.ExampleClass
+                    {
+                        SomeOtherTest = new ulong[1],
+                        Test = "something"
+                    }, typeof(publishDomainNameSpace.ExampleClass), 
+                        eventId, correlationId);
+                    Task.Delay(100).Wait();
+                }
+
+                publishCompleted.TrySetResult();
+            }
+            catch (Exception e)
+            {
+                publishCompleted.TrySetException(e);
+                throw;
+            }
+        }
+
+        await Task.WhenAll(Send(), Listen());
+    }
+
     public record Test(Func<Task> exec, string name);
 
     [ProtoContract]
@@ -286,3 +390,46 @@ internal class Program
         [ProtoMember(5)] public Dictionary<string, byte[]>? Bytes { get; init; } = new();
     }
 }
+
+internal class MapperFactory : IMapperFactory, IMapper
+{
+    private readonly publishDtoNameSpace.ExampleClassMapper publishMapper = new ExampleClassMapper();
+
+    private readonly subscribeDtoNameSpace.ExampleClassMapper subscribeMapper =
+        new subscribeDtoNameSpace.ExampleClassMapper();
+    public IMapper GetMapper(Type mapperType, Type dto, Type domain)
+    {
+        return this;
+    }
+
+    public object? DtoToDomain(Type dtoType, object dto, Type domainType)
+    {
+        if (dtoType.IsAssignableFrom(typeof(subscribeDtoNameSpace.ExampleClass)))
+        {
+            return subscribeMapper.DtoToDomain((subscribeDtoNameSpace.ExampleClass)dto);
+        }
+        if (dtoType.IsAssignableFrom(typeof(publishDtoNameSpace.ExampleClass)))
+        {
+            return publishMapper.DtoToDomain((publishDtoNameSpace.ExampleClass)dto);
+        }
+
+        throw new InvalidOperationException("Unknown dto type");
+    }
+
+    public object? DomainToDto(Type domainType, object domain, Type dtoType)
+    {
+        if (domainType.IsAssignableFrom(typeof(subscribeDomainNameSpace.ExampleClass)))
+        {
+            return subscribeMapper.DomainToDto((subscribeDomainNameSpace.ExampleClass)domain);
+        }
+
+        if (domainType.IsAssignableFrom(typeof(publishDomainNameSpace.ExampleClass)))
+        {
+            return publishMapper.DomainToDto((publishDomainNameSpace.ExampleClass)domain);
+        }
+        throw new InvalidOperationException("Unknown dto type");
+    }
+}
+
+public record SubjectRegistration(string SubjectName, Type? Type) : ISubjectRegistration;
+public record MapRegistration(Type Domain, Type Dto, Type Mapper) : IMapRegistration;

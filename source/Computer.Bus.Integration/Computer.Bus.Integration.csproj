@@ -12,6 +12,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\Computer.Bus.Domain\Computer.Bus.Domain.csproj" />
       <ProjectReference Include="..\Computer.Bus.ProtobuffNet\Computer.Bus.ProtobuffNet.csproj" />
     </ItemGroup>
 
