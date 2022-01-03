@@ -1,4 +1,6 @@
-﻿namespace Computer.Bus.Domain.Contracts;
+﻿using System;
+
+namespace Computer.Bus.Domain.Contracts;
 
 public interface IMapper
 {

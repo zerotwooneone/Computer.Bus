@@ -226,12 +226,12 @@ internal class Program
                 
                 var client = new Domain.Bus(dtoClient, mapperFactory, initializer);
 
-                async Task Callback()
+                async Task Callback(object? obj, Type? type, string eventId, string correlationId)
                 {
                     callbackCount++;
                 }
 
-                using var subscription = await client.Subscribe(subjectName,typeof(subscribeDomainNameSpace.ExampleClass), (e, t,eid,cid) => Callback());
+                using var subscription = await client.Subscribe(subjectName,typeof(subscribeDomainNameSpace.ExampleClass), Callback);
                 listenStarted.TrySetResult();
 
                 await publishCompleted.Task;
