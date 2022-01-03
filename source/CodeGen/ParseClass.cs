@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace CodeGen;
 
@@ -59,6 +60,8 @@ public class ParseClass
         var subscribeMapperClass = CreateMapperClass(className, subscribeDtoNamespace, subscribeDomainNamespace, assignDtoToDomain, assignDomainToDto);
 
         var publishDtoMapper = SyntaxFactory.CompilationUnit()
+            .AddUsing("Computer.Bus.Domain.Contracts")
+            .AddUsing("System")
             .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(new[]
             {
                 SyntaxFactory.FileScopedNamespaceDeclaration(SyntaxFactory.IdentifierName(publishDtoNamespace))
@@ -68,6 +71,8 @@ public class ParseClass
                     }))
             }));
         var subscribeDtoMapper = SyntaxFactory.CompilationUnit()
+            .AddUsing("Computer.Bus.Domain.Contracts")
+            .AddUsing("System")
             .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(new[]
             {
                 SyntaxFactory.FileScopedNamespaceDeclaration(SyntaxFactory.IdentifierName(subscribeDtoNamespace))
@@ -100,42 +105,215 @@ public class ParseClass
         IEnumerable<ExpressionSyntax> assignDtoToDomain,
         IEnumerable<ExpressionSyntax> assignDomainToDto)
     {
-        var domainToDtoParams = SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(new[]
+        var domainToDtoParams = SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList<ParameterSyntax>(new[]
             {
-                SyntaxFactory.Parameter(SyntaxFactory.Identifier("domain"))
-                    .WithType(SyntaxFactory.ParseTypeName($"{domainNamespace}.{className}"))
+                SyntaxFactory.Parameter(SyntaxFactory.Identifier("domainType"))
+                    .WithType(IdentifierName("Type")),
+                SyntaxFactory.Parameter(SyntaxFactory.Identifier("obj"))
+                    .WithType(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.ObjectKeyword))),
+                SyntaxFactory.Parameter(SyntaxFactory.Identifier("dtoType"))
+                    .WithType(IdentifierName("Type")),
             })
         );
         var dtoToDomainParams = SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(new[]
             {
-                SyntaxFactory.Parameter(SyntaxFactory.Identifier("dto"))
-                    .WithType(SyntaxFactory.ParseTypeName($"{dtoNamespace}.{className}"))
+                SyntaxFactory.Parameter(SyntaxFactory.Identifier("dtoType"))
+                    .WithType(IdentifierName("Type")),
+                SyntaxFactory.Parameter(SyntaxFactory.Identifier("obj"))
+                    .WithType(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.ObjectKeyword))),
+                SyntaxFactory.Parameter(SyntaxFactory.Identifier("domainType"))
+                    .WithType(IdentifierName("Type")),
             })
         );
+        var dtoClassType = SyntaxFactory.ParseTypeName($"{dtoNamespace}.{className}");
+        var domainClassType = SyntaxFactory.ParseTypeName($"{domainNamespace}.{className}");
         var mapperClass = SyntaxFactory.ClassDeclaration(CreateMapperName(className))
             .WithModifiers(SyntaxFactory.TokenList(new[] { SyntaxFactory.Token(SyntaxKind.PublicKeyword), SyntaxFactory.Token(SyntaxKind.PartialKeyword) }))
+            .WithBaseList(SyntaxFactory.BaseList(SyntaxFactory.SingletonSeparatedList<BaseTypeSyntax>(
+                SyntaxFactory.SimpleBaseType(SyntaxFactory.IdentifierName("IMapper")))))
             .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(new[]
             {
                 SyntaxFactory.MethodDeclaration(
-                        returnType: SyntaxFactory.ParseTypeName($"{domainNamespace}.{className}"),
+                        returnType: SyntaxFactory.NullableType(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.ObjectKeyword))),
                         identifier: SyntaxFactory.Identifier("DtoToDomain"))
                     .WithParameterList(dtoToDomainParams)
                     .WithModifiers(SyntaxFactory.TokenList(new[] { SyntaxFactory.Token(SyntaxKind.PublicKeyword) }))
                     .WithBody(SyntaxFactory.Block(
-                        SyntaxFactory.ReturnStatement(SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName($"{domainNamespace}.{className}"))
-                            .WithInitializer(SyntaxFactory.InitializerExpression(SyntaxKind.ObjectInitializerExpression,SyntaxFactory.SeparatedList<ExpressionSyntax>(assignDtoToDomain))))
+                        GetMapStatements(false, dtoClassType, domainClassType, assignDtoToDomain)
                         )),
                 SyntaxFactory.MethodDeclaration(
-                        returnType: SyntaxFactory.ParseTypeName($"{dtoNamespace}.{className}"),
+                        returnType: SyntaxFactory.NullableType(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.ObjectKeyword))),
                         identifier: SyntaxFactory.Identifier("DomainToDto"))
                     .WithParameterList(domainToDtoParams)
                     .WithModifiers(SyntaxFactory.TokenList(new[] { SyntaxFactory.Token(SyntaxKind.PublicKeyword) }))
                     .WithBody(SyntaxFactory.Block(
-                        SyntaxFactory.ReturnStatement(SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName($"{dtoNamespace}.{className}"))
-                            .WithInitializer(SyntaxFactory.InitializerExpression(SyntaxKind.ObjectInitializerExpression,SyntaxFactory.SeparatedList<ExpressionSyntax>(assignDomainToDto))))
+                        GetMapStatements(true, dtoClassType, domainClassType, assignDomainToDto)
                     ))
             }));
         return mapperClass;
+    }
+
+    private static IEnumerable<StatementSyntax> GetMapStatements(
+        bool isDomainToDto, 
+        TypeSyntax dtoClassType, TypeSyntax domainClassType,
+        IEnumerable<ExpressionSyntax> assignmentExpressions)
+    {
+        var fromType = isDomainToDto
+            ? domainClassType
+            : dtoClassType;
+        var toType = isDomainToDto
+            ? dtoClassType
+            : domainClassType;
+        var localVar = isDomainToDto
+            ? Identifier("domain")
+            : Identifier("dto");
+        yield return IfStatement
+        (
+            BinaryExpression
+            (
+                SyntaxKind.LogicalOrExpression,
+                BinaryExpression
+                (
+                    SyntaxKind.LogicalOrExpression,
+                    PrefixUnaryExpression
+                    (
+                        SyntaxKind.LogicalNotExpression,
+                        InvocationExpression
+                            (
+                                MemberAccessExpression
+                                (
+                                    SyntaxKind.SimpleMemberAccessExpression,
+                                    IdentifierName("dtoType"),
+                                    IdentifierName("IsAssignableFrom")
+                                )
+                            )
+                            .WithArgumentList
+                            (
+                                ArgumentList
+                                (
+                                    SingletonSeparatedList<ArgumentSyntax>
+                                    (
+                                        Argument
+                                        (
+                                            TypeOfExpression
+                                            (
+                                                dtoClassType
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                    ),
+                    PrefixUnaryExpression
+                    (
+                        SyntaxKind.LogicalNotExpression,
+                        InvocationExpression
+                            (
+                                MemberAccessExpression
+                                (
+                                    SyntaxKind.SimpleMemberAccessExpression,
+                                    IdentifierName("domainType"),
+                                    IdentifierName("IsAssignableFrom")
+                                )
+                            )
+                            .WithArgumentList
+                            (
+                                ArgumentList
+                                (
+                                    SingletonSeparatedList<ArgumentSyntax>
+                                    (
+                                        Argument
+                                        (
+                                            TypeOfExpression
+                                            (
+                                                domainClassType
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                    )
+                ),
+                BinaryExpression
+                (
+                    SyntaxKind.EqualsExpression,
+                    IdentifierName("obj"),
+                    LiteralExpression
+                    (
+                        SyntaxKind.NullLiteralExpression
+                    )
+                )
+            ),
+            Block
+            (
+                SingletonList<StatementSyntax>
+                (
+                    ReturnStatement
+                    (
+                        LiteralExpression
+                        (
+                            SyntaxKind.NullLiteralExpression
+                        )
+                    )
+                )
+            )
+        );
+        yield return LocalDeclarationStatement
+        (
+            VariableDeclaration
+                (
+                    IdentifierName
+                    (
+                        Identifier
+                        (
+                            TriviaList(),
+                            SyntaxKind.VarKeyword,
+                            "var",
+                            "var",
+                            TriviaList()
+                        )
+                    )
+                )
+                .WithVariables
+                (
+                    SingletonSeparatedList<VariableDeclaratorSyntax>
+                    (
+                        VariableDeclarator
+                            (
+                                localVar
+                            )
+                            .WithInitializer
+                            (
+                                EqualsValueClause
+                                (
+                                    CastExpression
+                                    (
+                                        fromType,
+                                        IdentifierName("obj")
+                                    )
+                                )
+                            )
+                    )
+                )
+        );
+        yield return ReturnStatement
+        (
+            ObjectCreationExpression
+                (
+                    toType
+                )
+                .WithInitializer
+                (
+                    InitializerExpression
+                    (
+                        SyntaxKind.ObjectInitializerExpression,
+                        SeparatedList<ExpressionSyntax>
+                        (
+                            assignmentExpressions
+                        )
+                    )
+                )
+        );
     }
 
     private static string CreateMapperName(string className)
