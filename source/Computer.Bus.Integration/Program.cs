@@ -300,19 +300,24 @@ internal class Program
 
 internal class MapperFactory : IMapperFactory
 {
-    private readonly publishDtoNameSpace.ExampleClassMapper publishMapper = new();
+    private readonly Dictionary<Type, IMapper> _maps;
+    private readonly publishDtoNameSpace.ExampleClassMapper _publishMapper = new();
+    private readonly subscribeDtoNameSpace.ExampleClassMapper _subscribeMapper = new();
 
-    private readonly subscribeDtoNameSpace.ExampleClassMapper subscribeMapper = new();
+    public MapperFactory()
+    {
+        _maps = new Dictionary<Type, IMapper>
+        {
+            {typeof(publishDtoNameSpace.ExampleClassMapper), _publishMapper},
+            {typeof(subscribeDtoNameSpace.ExampleClassMapper), _subscribeMapper}
+        };
+    }
+
     public IMapper GetMapper(Type mapperType, Type dto, Type domain)
     {
-        if (dto.IsAssignableTo(typeof(publishDtoNameSpace.ExampleClass)))
+        if (_maps.TryGetValue(mapperType, out var mapper))
         {
-            return publishMapper;
-        }
-
-        if (dto.IsAssignableTo(typeof(subscribeDtoNameSpace.ExampleClass)))
-        {
-            return subscribeMapper;
+            return mapper;
         }
 
         throw new ArgumentException($"unknown type {dto} not mapped");
