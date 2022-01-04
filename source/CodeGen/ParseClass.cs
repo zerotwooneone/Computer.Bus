@@ -14,8 +14,6 @@ public class ParseClass
         string subscribeDtoNamespace,
         string subscribeDomainNamespace)
     {
-        root = root
-            .WithTargetNamespace(ns =>ns.WithTargetClass(c => c.AddNullableDirective()));
         var nameSpace = root.FindTargetNamespace();
         var classDef = nameSpace.FindTargetClass();
         var properties = classDef.Members
@@ -92,12 +90,12 @@ public class ParseClass
             .MakePartial();
 
         return new ClassDef(
-            publishDto, 
-            publishDtoMapper, 
-            publishDomain, 
-            subscribeDto, 
-            subscribeDtoMapper, 
-            subscribeDomain,
+            publishDto.WithTargetNamespace(ns =>ns.WithTargetClass(c => c.AddNullableDirective())), 
+            publishDtoMapper.WithTargetNamespace(ns =>ns.WithTargetClass(c => c.AddNullableDirective())), 
+            publishDomain.WithTargetNamespace(ns =>ns.WithTargetClass(c => c.AddNullableDirective())), 
+            subscribeDto.WithTargetNamespace(ns =>ns.WithTargetClass(c => c.AddNullableDirective())), 
+            subscribeDtoMapper.WithTargetNamespace(ns =>ns.WithTargetClass(c => c.AddNullableDirective())), 
+            subscribeDomain.WithTargetNamespace(ns =>ns.WithTargetClass(c => c.AddNullableDirective())),
             className,
             CreateMapperName(className));
     }
@@ -151,8 +149,7 @@ public class ParseClass
                     .WithBody(SyntaxFactory.Block(
                         GetMapStatements(true, dtoClassType, domainClassType, assignDomainToDto)
                     ))
-            }))
-            .AddNullableDirective();
+            }));
         return mapperClass;
     }
 
@@ -383,7 +380,7 @@ public static class CompilationUnitSyntaxExtensions
             .FindTargetNamespace();
         var newNamespace = changeNamespace(@namespace);
         return root.ReplaceNode(
-            @newNamespace,
+            @namespace,
             newNamespace);
     }
     public static CompilationUnitSyntax AddUsing(this CompilationUnitSyntax root, string identifier)
@@ -447,7 +444,7 @@ public static class NamespaceSyntaxExtensions
             .FindTargetClass();
         var newClass = changeClass(@class);
         return root.ReplaceNode(
-            newClass,
+            @class,
             newClass);
     }
     public static BaseNamespaceDeclarationSyntax AddClassAttribute(this BaseNamespaceDeclarationSyntax namespaceDec,
