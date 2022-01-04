@@ -47,6 +47,10 @@ public class Bus : IBus
         }
 
         var mapper = _mapperFactory.GetMapper(registration.Mapper, registration.Dto, registration.Domain);
+        if (mapper == null)
+        {
+            return PublishResult.CreateError($"Could not find a mapper. subject:{subjectId} dto:{registration.Mapper} domain:{registration.Domain}");
+        }
         var dto = mapper.DomainToDto(registration.Domain, param, registration.Dto);
         if (dto == null)
         {
@@ -80,7 +84,7 @@ public class Bus : IBus
         async Task InnerCallback(object? param, Type? dtoType,  string eventId, string correlationId)
         {
             var mapper = _mapperFactory.GetMapper(registration.Mapper, registration.Dto, registration.Domain);
-            var domain = param == null
+            var domain = param == null || mapper == null
                 ? null
                 : mapper.DtoToDomain(registration.Dto, param, registration.Domain);
             await callback(domain, registration.Domain, eventId, correlationId);

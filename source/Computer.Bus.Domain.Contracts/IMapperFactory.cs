@@ -2,5 +2,5 @@
 
 public interface IMapperFactory
 {
-    IMapper GetMapper(Type mapperType, Type dto, Type domain);
+    IMapper? GetMapper(Type mapperType, Type dto, Type domain);
 }
