@@ -14,6 +14,8 @@ public class ParseClass
         string subscribeDtoNamespace,
         string subscribeDomainNamespace)
     {
+        root = root
+            .WithTargetNamespace(ns =>ns.WithTargetClass(c => c.AddNullableDirective()));
         var nameSpace = root.FindTargetNamespace();
         var classDef = nameSpace.FindTargetClass();
         var properties = classDef.Members
@@ -149,7 +151,8 @@ public class ParseClass
                     .WithBody(SyntaxFactory.Block(
                         GetMapStatements(true, dtoClassType, domainClassType, assignDomainToDto)
                     ))
-            }));
+            }))
+            .AddNullableDirective();
         return mapperClass;
     }
 
@@ -373,6 +376,16 @@ public class ParseClass
 
 public static class CompilationUnitSyntaxExtensions
 {
+    public static CompilationUnitSyntax WithTargetNamespace(this CompilationUnitSyntax root,
+        Func<BaseNamespaceDeclarationSyntax, BaseNamespaceDeclarationSyntax> changeNamespace)
+    {
+        var @namespace = root
+            .FindTargetNamespace();
+        var newNamespace = changeNamespace(@namespace);
+        return root.ReplaceNode(
+            @newNamespace,
+            newNamespace);
+    }
     public static CompilationUnitSyntax AddUsing(this CompilationUnitSyntax root, string identifier)
     {
         var name = SyntaxFactory.IdentifierName(identifier);
@@ -427,6 +440,16 @@ public static class CompilationUnitSyntaxExtensions
 
 public static class NamespaceSyntaxExtensions
 {
+    public static BaseNamespaceDeclarationSyntax WithTargetClass(this BaseNamespaceDeclarationSyntax root,
+        Func<ClassDeclarationSyntax, ClassDeclarationSyntax> changeClass)
+    {
+        var @class = root
+            .FindTargetClass();
+        var newClass = changeClass(@class);
+        return root.ReplaceNode(
+            newClass,
+            newClass);
+    }
     public static BaseNamespaceDeclarationSyntax AddClassAttribute(this BaseNamespaceDeclarationSyntax namespaceDec,
         string attributeName)
     {
@@ -505,5 +528,31 @@ public static class ClassSyntaxExtensions
             return classDec;
         }
         return classDec.AddModifiers(partialToken);
+    }
+
+    public static ClassDeclarationSyntax AddNullableDirective(this ClassDeclarationSyntax classDec)
+    {
+        return classDec.WithModifiers
+        (
+            TokenList
+            (
+                Token
+                (
+                    TriviaList
+                    (
+                        Trivia
+                        (
+                            NullableDirectiveTrivia
+                            (
+                                Token(SyntaxKind.EnableKeyword),
+                                true
+                            )
+                        )
+                    ),
+                    SyntaxKind.PublicKeyword,
+                    TriviaList()
+                )
+            )
+        );
     }
 }
