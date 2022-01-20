@@ -42,6 +42,10 @@ public class ParseClass
         {
             var propertyName = property.Identifier.ValueText;
             propertyCounter++;
+            // if (property.Type is GenericNameSyntax genericType)
+            // {
+            //     var x = genericType.TypeArgumentList.Arguments.First();
+            // }
             publishDto = AddProtoPropAttribute(publishDto, propertyName, propertyCounter);
             subscribeDto = AddProtoPropAttribute(subscribeDto, propertyName, propertyCounter).MakePropertyNullable(propertyName);
             
@@ -148,7 +152,30 @@ public class ParseClass
                     .WithModifiers(SyntaxFactory.TokenList(new[] { SyntaxFactory.Token(SyntaxKind.PublicKeyword) }))
                     .WithBody(SyntaxFactory.Block(
                         GetMapStatements(true, dtoClassType, domainClassType, assignDomainToDto)
+                    )),
+                
+                SyntaxFactory.MethodDeclaration(
+                        returnType: domainClassType,
+                        identifier: SyntaxFactory.Identifier("DtoToDomain"))
+                    .WithParameterList( SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(new[]
+                        {
+                            SyntaxFactory.Parameter(SyntaxFactory.Identifier("dto"))
+                                .WithType(dtoClassType),
+                        })
                     ))
+                    .WithModifiers(SyntaxFactory.TokenList(new[] { SyntaxFactory.Token(SyntaxKind.PublicKeyword) }))
+                    .WithBody(SyntaxFactory.Block()),
+                SyntaxFactory.MethodDeclaration(
+                        returnType: dtoClassType,
+                        identifier: SyntaxFactory.Identifier("DomainToDto"))
+                    .WithParameterList( SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(new[]
+                        {
+                            SyntaxFactory.Parameter(SyntaxFactory.Identifier("domain"))
+                                .WithType(domainClassType),
+                        })
+                    ))
+                    .WithModifiers(SyntaxFactory.TokenList(new[] { SyntaxFactory.Token(SyntaxKind.PublicKeyword) }))
+                    .WithBody(SyntaxFactory.Block())
             }));
         return mapperClass;
     }
@@ -167,6 +194,9 @@ public class ParseClass
         var localVar = isDomainToDto
             ? Identifier("domain")
             : Identifier("dto");
+        var localVarName = isDomainToDto
+            ? IdentifierName("domain")
+            : IdentifierName("dto");
         yield return IfStatement
         (
             BinaryExpression
@@ -286,30 +316,59 @@ public class ParseClass
                             (
                                 EqualsValueClause
                                 (
-                                    CastExpression
+                                    BinaryExpression
                                     (
-                                        fromType,
-                                        IdentifierName("obj")
+                                        SyntaxKind.AsExpression,
+                                        IdentifierName("obj"),
+                                        fromType
                                     )
                                 )
                             )
                     )
                 )
         );
+        yield return IfStatement
+        (
+            BinaryExpression
+            (
+                SyntaxKind.EqualsExpression,
+                localVarName,
+                LiteralExpression
+                (
+                    SyntaxKind.NullLiteralExpression
+                )
+            ),
+            Block
+            (
+                SingletonList<StatementSyntax>
+                (
+                    ReturnStatement
+                    (
+                        LiteralExpression
+                        (
+                            SyntaxKind.NullLiteralExpression
+                        )
+                    )
+                )
+            )
+        );
+        var convertMethodName = isDomainToDto ? IdentifierName("DomainToDto") : IdentifierName("DtoToDomain");
         yield return ReturnStatement
         (
-            ObjectCreationExpression
+            InvocationExpression
                 (
-                    toType
+                    convertMethodName
                 )
-                .WithInitializer
+                .WithArgumentList
                 (
-                    InitializerExpression
+                    ArgumentList
                     (
-                        SyntaxKind.ObjectInitializerExpression,
-                        SeparatedList<ExpressionSyntax>
+                        SingletonSeparatedList<ArgumentSyntax>
                         (
-                            assignmentExpressions
+                            Argument
+                            (
+                                localVarName
+                            )
                         )
                     )
                 )
