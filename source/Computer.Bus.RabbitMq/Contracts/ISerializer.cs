@@ -26,7 +26,7 @@ public static class SerializerExtensions
 
     public static async Task<IBusEvent<T>?> Deserialize<T>(this ISerializer serializer, byte[] bytes)
     {
-        var @event = await serializer.Deserialize(bytes, typeof(T));
+        var @event = await serializer.Deserialize(bytes, typeof(T)).ConfigureAwait(false);
         if (@event?.Payload == null)
         {
             return null;

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
 using RabbitMQ.Client;
-using IConnectionFactory = Computer.Bus.RabbitMq.Contracts.IConnectionFactory;
 
 namespace Computer.Bus.Integration;
 

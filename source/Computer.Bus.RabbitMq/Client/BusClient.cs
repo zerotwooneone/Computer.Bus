@@ -24,26 +24,34 @@ public class BusClient : IBusClient
     {
         var eid = eventId ?? Guid.NewGuid().ToString();
         var cid = correlationId ?? Guid.NewGuid().ToString();
-        var body = await _serializer.Serialize(eid, cid);
+        var body = await _serializer.Serialize(eid, cid).ConfigureAwait(false);
         if (body == null)
         {
             return PublishResult.CreateError("Something went wrong while serializing");
         }
-        return await _channelAdapter.Publish(subjectId, body);
+        return await _channelAdapter.Publish(subjectId, body).ConfigureAwait(false);
     }
 
     public async Task<IPublishResult> Publish(string subjectId,
-        object param, Type type,
+        object? param, Type type,
         string? eventId = null, string? correlationId = null)
     {
         var eid = eventId ?? Guid.NewGuid().ToString();
         var cid = correlationId ?? Guid.NewGuid().ToString();
-        var body = await _serializer.Serialize(param, type, eid, cid);
-        if (body == null)
+        byte[]? body;
+        if (param == null)
         {
-            return PublishResult.CreateError("Serialization failed");
+            body = null;
         }
-        return await _channelAdapter.Publish(subjectId, body);
+        else
+        {
+            body = await _serializer.Serialize(param, type, eid, cid).ConfigureAwait(false);
+            if (body == null)
+            {
+                return PublishResult.CreateError("Serialization failed");
+            }
+        }
+        return await _channelAdapter.Publish(subjectId, body).ConfigureAwait(false);
     }
     // public async Task<IPublishResult> Publish<T>(string subjectId,
     //     T? param,
@@ -59,12 +67,12 @@ public class BusClient : IBusClient
     {
         async Task InnerCallback(byte[] b)
         {
-            var @event = await _serializer.Deserialize(b, type);
+            var @event = await _serializer.Deserialize(b, type).ConfigureAwait(false);
             if (@event == null)
             {
                 return;
             }
-            await callback(@event.Payload, type, @event.EventId, @event.CorrelationId);
+            await callback(@event.Payload, type, @event.EventId, @event.CorrelationId).ConfigureAwait(false);
         }
 
         return _channelAdapter.Subscribe(subjectId, InnerCallback);
@@ -74,12 +82,12 @@ public class BusClient : IBusClient
     {
         async Task InnerCallback(byte[] b)
         {
-            var @event = await _serializer.Deserialize(b);
+            var @event = await _serializer.Deserialize(b).ConfigureAwait(false);
             if (@event == null)
             {
                 return;
             }
-            await callback(@event.EventId, @event.CorrelationId);
+            await callback(@event.EventId, @event.CorrelationId).ConfigureAwait(false);
         }
 
         return _channelAdapter.Subscribe(subjectId, InnerCallback);

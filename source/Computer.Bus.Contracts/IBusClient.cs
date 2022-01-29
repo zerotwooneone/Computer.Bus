@@ -10,7 +10,7 @@ public interface IBusClient
         string? eventId = null, string? correlationId = null);
 
     Task<IPublishResult> Publish(string subjectId,
-        object param, Type type,
+        object? param, Type type,
         string? eventId = null, string? correlationId = null);
 
     Task<ISubscription> Subscribe(string subjectId, Type type, SubscribeCallbackP callback);
@@ -45,4 +45,3 @@ public static class BusClientExtensions {
         return busClient.Publish(subjectId, param, typeof(T), eventId, correlationId);
     }
 }
-

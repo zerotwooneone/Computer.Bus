@@ -17,9 +17,9 @@ public class ChannelAdapter
         _connectionFactory = connectionFactory;
     }
 
-    public async Task<PublishResult> Publish(string subjectId, byte[] body)
+    public async Task<PublishResult> Publish(string subjectId, byte[]? body)
     {
-        var connection = await _connectionFactory.GetConnection("default", subjectId);
+        var connection = await _connectionFactory.GetConnection("default", subjectId).ConfigureAwait(false);
         using var channel = connection.CreateModel();
         CreateBusExchange(channel);
 
@@ -53,7 +53,7 @@ public class ChannelAdapter
     public async Task<ISubscription> Subscribe(string subjectId,
         Func<byte[], Task> callback)
     {
-        var connection = await _connectionFactory.GetConnection("default", subjectId);
+        var connection = await _connectionFactory.GetConnection("default", subjectId).ConfigureAwait(false);
         var channel = connection.CreateModel();
 
         CreateBusExchange(channel);
@@ -69,8 +69,17 @@ public class ChannelAdapter
 
         async Task OnConsumerOnReceived(object? model, BasicDeliverEventArgs ea)
         {
-            await callback(ea.Body.ToArray());
-            channel.BasicAck(ea.DeliveryTag, false);
+            try
+            {
+                await callback(ea.Body.ToArray()).ConfigureAwait(false);
+                channel.BasicAck(ea.DeliveryTag, false);
+            }
+            catch (Exception e)
+            {
+                //todo: do something when an exception occurs
+                Console.WriteLine(e);
+                throw;
+            }
         }
 
         consumer.Received += OnConsumerOnReceived;
