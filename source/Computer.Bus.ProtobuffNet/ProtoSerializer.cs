@@ -34,9 +34,7 @@ public class ProtoSerializer : ISerializer
         }
         catch (Exception e)
         {
-            //todo: remove this
-            Console.WriteLine(e);
-            throw;
+            return Task.FromResult<byte[]?>(null);
         }
     }
 

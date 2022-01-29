@@ -72,14 +72,19 @@ public class ChannelAdapter
             try
             {
                 await callback(ea.Body.ToArray()).ConfigureAwait(false);
-                channel.BasicAck(ea.DeliveryTag, false);
             }
+            catch
+            {
+                //we dont stop if the callback had an error
+            }
+            //try
+            //{
+                channel.BasicAck(ea.DeliveryTag, false);
+            /*}
             catch (Exception e)
             {
                 //todo: do something when an exception occurs
-                Console.WriteLine(e);
-                throw;
-            }
+            }*/
         }
 
         consumer.Received += OnConsumerOnReceived;
