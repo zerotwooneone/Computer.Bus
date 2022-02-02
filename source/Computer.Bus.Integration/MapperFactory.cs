@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using Computer.Bus.Domain.Contracts;
+using Computer.Bus.Domain.Contracts.Models;
 
 namespace Computer.Bus.Integration;
 
-internal class MapperFactory : IMapperFactory
+internal class MapperFactory : Computer.Bus.Domain.Contracts.IMapperFactory
 {
     private readonly Dictionary<Type, IMapper> _maps;
     private readonly publishDtoNameSpace.ExampleClassMapper _publishMapper = new();

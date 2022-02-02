@@ -20,7 +20,7 @@ public class Bus : IBus
 
     public async Task<IPublishResult> Publish(string subjectId, string? eventId = null, string? correlationId = null)
     {
-        return PublishResult.FromDto(await _dtoBus.Publish(subjectId, eventId, correlationId));
+        return PublishResult.FromDto(await _dtoBus.Publish(subjectId, eventId, correlationId).ConfigureAwait(false));
     }
 
     public async Task<IPublishResult> Publish(string subjectId, object param, Type type, string? eventId = null, string? correlationId = null)
@@ -56,7 +56,7 @@ public class Bus : IBus
         {
             return PublishResult.CreateError($"Could not convert to dto subject:{subjectId} dto:{registration.Dto} domain:{registration.Domain}");
         }
-        return PublishResult.FromDto(await _dtoBus.Publish(subjectId, dto, registration.Dto, eventId, correlationId));
+        return PublishResult.FromDto(await _dtoBus.Publish(subjectId, dto, registration.Dto, eventId, correlationId).ConfigureAwait(false));
     }
 
     public async Task<ISubscription> Subscribe(string subjectId, Type type, SubscribeCallbackP callback)
@@ -87,9 +87,9 @@ public class Bus : IBus
             var domain = param == null || mapper == null
                 ? null
                 : mapper.DtoToDomain(registration.Dto, param, registration.Domain);
-            await callback(domain, registration.Domain, eventId, correlationId);
+            await callback(domain, registration.Domain, eventId, correlationId).ConfigureAwait(false);
         }
-        var innerSubscription = await _dtoBus.Subscribe(subjectId, type, InnerCallback);
+        var innerSubscription = await _dtoBus.Subscribe(subjectId, registration.Dto, InnerCallback).ConfigureAwait(false);
         return new DomainSubscription(innerSubscription);
     }
 
@@ -97,9 +97,9 @@ public class Bus : IBus
     {
         async Task InnerCallback(string eventId, string correlationId)
         {
-            await callback(eventId, correlationId);
+            await callback(eventId, correlationId).ConfigureAwait(false);
         }
-        var innerSubscription = await _dtoBus.Subscribe(subjectId, InnerCallback);
+        var innerSubscription = await _dtoBus.Subscribe(subjectId, InnerCallback).ConfigureAwait(false);
         return new DomainSubscription(innerSubscription);
     }
 }

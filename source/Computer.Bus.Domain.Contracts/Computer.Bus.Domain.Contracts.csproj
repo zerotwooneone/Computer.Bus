@@ -5,11 +5,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-        <PackageVersion>0.0.2</PackageVersion>
+        <PackageVersion>0.0.3</PackageVersion>
     </PropertyGroup>
-
-    <ItemGroup>
-      <PackageReference Include="computer.bus.contracts" Version="0.0.8" />
-    </ItemGroup>
 
 </Project>

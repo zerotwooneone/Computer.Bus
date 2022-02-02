@@ -1,4 +1,6 @@
-﻿namespace Computer.Bus.Domain.Contracts;
+﻿using Computer.Bus.Domain.Contracts.Models;
+
+namespace Computer.Bus.Domain.Contracts;
 
 public interface IMapperFactory
 {

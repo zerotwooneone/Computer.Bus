@@ -1,5 +1,5 @@
-using Computer.Bus.Domain.Contracts;
 using System;
+using Computer.Bus.Domain.Contracts.Models;
 
 namespace subscribeDtoNameSpace;
 public partial class ExampleClassMapper : IMapper
