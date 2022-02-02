@@ -32,7 +32,7 @@ public class ProtoSerializer : ISerializer
             
             return Task.FromResult<byte[]?>(memStream.ToArray());
         }
-        catch (Exception e)
+        catch
         {
             return Task.FromResult<byte[]?>(null);
         }
