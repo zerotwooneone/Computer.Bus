@@ -23,9 +23,6 @@ public class ProtoSerializer : ISerializer
             Serializer.Serialize(payloadStream, param);
             var payloadBytes = payloadStream.ToArray();
 
-            using var test = new MemoryStream(payloadBytes);
-            var result = Serializer.Deserialize(type, test);
-            
             using var memStream = new MemoryStream();
             var @event = new PublishEvent{ Payload = payloadBytes, EventId = eventId, CorrelationId = correlationId };
             Serializer.Serialize(memStream, @event);
