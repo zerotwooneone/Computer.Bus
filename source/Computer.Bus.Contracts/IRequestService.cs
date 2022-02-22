@@ -68,7 +68,7 @@ public static class RequestServiceExtensions
         string requestSubject,
         string responseSubject,
         CreateResponse<TRequest, TResponse> createResponse,
-        ErrorCallback<TRequest>? errorCallback = null)
+        ErrorCallback<TResponse>? errorCallback = null)
     {
         async Task<(object?, Type)> InnerCallback(object? param, Type? type, string eventId, string correlationId)
         {
@@ -78,17 +78,7 @@ public static class RequestServiceExtensions
 
         void InnerErrorCallback(string reason, object? param, Type? type, string? eventId, string? correlationId)
         {
-            TRequest? p;
-            try
-            {
-                p = (TRequest?)param;
-            }
-            catch
-            {
-                p = default;
-            }
-
-            errorCallback(reason, p, eventId, correlationId);
+            errorCallback(reason, default, eventId, correlationId);
         }
 
         IRequestService.ErrorCallback? innerErrorCallback = errorCallback == null

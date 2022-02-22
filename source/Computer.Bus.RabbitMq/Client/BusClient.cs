@@ -100,24 +100,48 @@ public class BusClient : IBusClient
             }
             catch (Exception e)
             {
-                errorCallback?.Invoke(e.ToString(), type, null, null);
+                try
+                {
+                    errorCallback?.Invoke(e.ToString(), type, null, null);
+                }
+                catch 
+                {
+                    //ignore
+                }
                 return;
             }
             if (!result.Success || result.Param == null)
             {
-                errorCallback?.Invoke(result.Reason ?? "bus deserialization failed, but there was no reason", 
-                    type, null, null, result.Param);
+                try
+                {
+                    errorCallback?.Invoke(result.Reason ?? "bus deserialization failed, but there was no reason",
+                        type, null, null, result.Param);
+                }
+                catch
+                {
+                    //ignore
+                }
+
                 return;
             }
             await callback(result.Param.Payload, type, result.Param.EventId, result.Param.CorrelationId).ConfigureAwait(false);
         }
 
+        void InnerChannelErrorCallback(string sid, string reason)
+        {
+            try
+            {
+                errorCallback.Invoke(reason, null, null, null, null);
+            }
+            catch
+            {
+                //ignore
+            }
+        }
+
         var innerChannelErrorCallback = errorCallback == null
             ? (Action<string, string>?)null
-            : (string sid, string reason) =>
-            {
-                errorCallback.Invoke(reason, null, sid, null, null);
-            };
+            : InnerChannelErrorCallback;
         
         return _channelAdapter.Subscribe(subjectId, InnerCallback, innerChannelErrorCallback);
     }
