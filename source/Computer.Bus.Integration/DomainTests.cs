@@ -7,6 +7,8 @@ using Computer.Bus.ProtobuffNet;
 using Computer.Bus.RabbitMq;
 using Computer.Bus.RabbitMq.Contracts;
 using NUnit.Framework;
+using publishDtoNameSpace;
+using ExampleClass = subscribeDomainNameSpace.ExampleClass;
 
 namespace Computer.Bus.Integration;
 
@@ -57,8 +59,14 @@ public class DomainTests
                 {
                     callbackCount++;
                 }
+                
+                void ErrorCallback(string reason, object? param, Type? type, string? eid, string? cid)
+                {
+                    Assert.Fail(reason);
+                }
 
-                using var subscription = await client.Subscribe(subjectName,typeof(subscribeDomainNameSpace.ExampleClass), Callback).ConfigureAwait(false);
+                using var subscription = await client.Subscribe(subjectName,typeof(subscribeDomainNameSpace.ExampleClass), 
+                    Callback, ErrorCallback).ConfigureAwait(false);
                 listenStarted.TrySetResult();
 
                 await publishCompleted.Task.ConfigureAwait(false);
@@ -167,9 +175,14 @@ public class DomainTests
                     callbackCount++;
                     return Task.FromResult<subscribeDomainNameSpace.ExampleClass?>(new subscribeDomainNameSpace.ExampleClass{Test = "response", SomeOtherTest = new []{(ulong)1,(ulong)3,(ulong)5,(ulong)9}});
                 }
+                
+                void ErrorCallback(string reason, ExampleClass? exampleClass, string? eid, string? cid)
+                {
+                    Assert.Fail(reason);
+                }
 
                 var x = requestService.Listen<subscribeDomainNameSpace.ExampleClass, subscribeDomainNameSpace.ExampleClass>(requestSubject, responseSubject,
-                    CreateResponse);
+                    CreateResponse, ErrorCallback);
                 //using var subscription = await client.Subscribe(subjectName,typeof(subscribeDomainNameSpace.ExampleClass), Callback).ConfigureAwait(false);
                 listenStarted.TrySetResult();
 

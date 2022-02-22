@@ -96,7 +96,8 @@ public class RequestService : IRequestService
 
     public async Task<ISubscription> Listen(string requestSubject, Type requestType, 
         string responseSubject, Type responseType,
-        IRequestService.CreateResponse createResponse)
+        IRequestService.CreateResponse createResponse,
+        IRequestService.ErrorCallback? errorCallback = null)
     {
         if (_initializer.RegistrationsBySubject == null)
         {
@@ -158,9 +159,17 @@ public class RequestService : IRequestService
             return (dtoResponse, responseRegistration.Dto);
         }
 
+        void InnerDtoErrorCallback(string reason, object? o, Type? type, string? eid, string? cid)
+        {
+            errorCallback?.Invoke(reason, default, type, eid, cid);
+        }
+
+        IDtoRequestService.ErrorCallback? innerDtoErrorCallback = errorCallback == null
+            ? (IDtoRequestService.ErrorCallback?)null
+            : InnerDtoErrorCallback;
         var dtoSubscription = await _dtoRequestService.Listen(requestSubject, requestRegistration.Dto, 
             responseSubject, responseRegistration.Dto,
-            InnerCreateResponse).ConfigureAwait(false);
+            InnerCreateResponse, innerDtoErrorCallback).ConfigureAwait(false);
         return new RequestSubscription(dtoSubscription);
     }
 }

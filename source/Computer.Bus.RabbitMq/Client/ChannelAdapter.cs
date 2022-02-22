@@ -20,6 +20,7 @@ public class ChannelAdapter
     public async Task<PublishResult> Publish(string subjectId, byte[]? body)
     {
         var connection = await _connectionFactory.GetConnection("default", subjectId).ConfigureAwait(false);
+        //todo: catch RabbitMQ.Client.Exceptions.BrokerUnreachableException
         using var channel = connection.CreateModel();
         CreateBusExchange(channel);
 
@@ -51,7 +52,8 @@ public class ChannelAdapter
     }
 
     public async Task<ISubscription> Subscribe(string subjectId,
-        Func<byte[], Task> callback)
+        Func<byte[], Task> callback,
+        Action<string,string>? errorCallback = null)
     {
         var connection = await _connectionFactory.GetConnection("default", subjectId).ConfigureAwait(false);
         var channel = connection.CreateModel();
@@ -72,19 +74,13 @@ public class ChannelAdapter
             try
             {
                 await callback(ea.Body.ToArray()).ConfigureAwait(false);
-            }
-            catch
-            {
-                //we dont stop if the callback had an error
-            }
-            //try
-            //{
                 channel.BasicAck(ea.DeliveryTag, false);
-            /*}
+            }
             catch (Exception e)
             {
-                //todo: do something when an exception occurs
-            }*/
+                //we dont stop if the callback had an error
+                errorCallback?.Invoke(subjectId, e.ToString());
+            }
         }
 
         consumer.Received += OnConsumerOnReceived;

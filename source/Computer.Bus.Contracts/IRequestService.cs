@@ -22,9 +22,11 @@ public interface IRequestService
         Type requestType,
         string responseSubject,
         Type responseType,
-        CreateResponse createResponse);
+        CreateResponse createResponse,
+        ErrorCallback? errorCallback = null);
     
     public delegate Task<(object?, Type)> CreateResponse(object? param, Type? type, string eventId, string correlationId);
+    public delegate void ErrorCallback(string reason, object? param, Type? type, string? eventId, string? correlationId);
 }
 
 public static class RequestServiceExtensions
@@ -45,6 +47,11 @@ public static class RequestServiceExtensions
             eventId,
             correlationId,
             cancellationToken).ConfigureAwait(false);
+        if (!response.Success)
+        {
+            return TypedResponse<TResponse>.CreateError(response.ErrorReason ??
+                                                        "typed response error was null when success was false");
+        }
         if (response.EventId == null || response.CorrelationId == null)
         {
             return TypedResponse<TResponse>.CreateError(response.ErrorReason ?? "Response missing event or correlation id.",
@@ -55,17 +62,38 @@ public static class RequestServiceExtensions
     }
     
     public delegate Task<TResponse?> CreateResponse<in TRequest, TResponse>(TRequest? param, string eventId, string correlationId);
+    public delegate void ErrorCallback<in TRequest>(string reason, TRequest? param, string? eventId, string? correlationId);
 
     public static IDisposable Listen<TRequest, TResponse>(this IRequestService requestService,
         string requestSubject,
         string responseSubject,
-        CreateResponse<TRequest, TResponse> createResponse)
+        CreateResponse<TRequest, TResponse> createResponse,
+        ErrorCallback<TRequest>? errorCallback = null)
     {
         async Task<(object?, Type)> InnerCallback(object? param, Type? type, string eventId, string correlationId)
         {
             var response = await createResponse((TRequest?)param, eventId, correlationId).ConfigureAwait(false);
             return (response, typeof(TResponse));
         }
-        return requestService.Listen(requestSubject, typeof(TRequest), responseSubject, typeof(TResponse), InnerCallback);
+
+        void InnerErrorCallback(string reason, object? param, Type? type, string? eventId, string? correlationId)
+        {
+            TRequest? p;
+            try
+            {
+                p = (TRequest?)param;
+            }
+            catch
+            {
+                p = default;
+            }
+
+            errorCallback(reason, p, eventId, correlationId);
+        }
+
+        IRequestService.ErrorCallback? innerErrorCallback = errorCallback == null
+            ? (IRequestService.ErrorCallback?)null
+            : InnerErrorCallback;
+        return requestService.Listen(requestSubject, typeof(TRequest), responseSubject, typeof(TResponse), InnerCallback, innerErrorCallback);
     }
 }

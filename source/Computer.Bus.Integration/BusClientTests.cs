@@ -41,7 +41,14 @@ public class BusClientTests
                     callbackCount++;
                 }
 
-                using var subscription = await client.Subscribe(subjectId, (e, c) => Callback()).ConfigureAwait(false);
+                void ErrorCallback(string reason, Type? type, string? id, string? correlationId, object? o)
+                {
+                    Assert.Fail($"error callback: {reason}");
+                }
+
+                using var subscription = await client.Subscribe(subjectId, 
+                    (e, c) => Callback(),
+                    ErrorCallback).ConfigureAwait(false);
                 listenStarted.TrySetResult();
 
                 await publishCompleted.Task.ConfigureAwait(false);
@@ -102,8 +109,13 @@ public class BusClientTests
                 {
                     received.Enqueue(param);
                 }
+                
+                void ErrorCallback(string reason, string? id, string? correlationId, object? o)
+                {
+                    Assert.Fail($"error callback: {reason}");
+                }
 
-                using var subscription = await client.Subscribe<ProtoModel>(subjectId, Callback).ConfigureAwait(false);
+                using var subscription = await client.Subscribe<ProtoModel>(subjectId, Callback, ErrorCallback).ConfigureAwait(false);
                 listenStarted.TrySetResult();
 
                 await publishCompleted.Task.ConfigureAwait(false);

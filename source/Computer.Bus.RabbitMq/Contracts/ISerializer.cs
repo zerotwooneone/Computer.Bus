@@ -5,15 +5,15 @@ namespace Computer.Bus.RabbitMq.Contracts;
 
 public interface ISerializer
 {
-    Task<byte[]?> Serialize(string eventId, string correlationId);
-    Task<byte[]?> Serialize(object param, Type type, string eventId, string correlationId);
+    Task<ISerializationResult<byte[]?>> Serialize(string eventId, string correlationId);
+    Task<ISerializationResult<byte[]?>> Serialize(object param, Type type, string eventId, string correlationId);
     
-    Task<IBusEvent?> Deserialize(byte[] bytes, Type? type = null);
+    Task<ISerializationResult<IBusEvent>> Deserialize(byte[] bytes, Type? type = null);
 }
 
 public static class SerializerExtensions
 {
-    public static Task<byte[]?> Serialize<T>(this ISerializer serializer,
+    public static Task<ISerializationResult<byte[]?>> Serialize<T>(this ISerializer serializer,
         T param,
         string eventId, string correlationId)
     {
@@ -24,14 +24,18 @@ public static class SerializerExtensions
         return serializer.Serialize(param, typeof(T), eventId, correlationId);
     }
 
-    public static async Task<IBusEvent<T>?> Deserialize<T>(this ISerializer serializer, byte[] bytes)
+    public static async Task<ISerializationResult<IBusEvent<T>>> Deserialize<T>(this ISerializer serializer, byte[] bytes)
     {
-        var @event = await serializer.Deserialize(bytes, typeof(T)).ConfigureAwait(false);
-        if (@event?.Payload == null)
+        var result = await serializer.Deserialize(bytes, typeof(T)).ConfigureAwait(false);
+        if (!result.Success)
         {
-            return null;
+            return SerializationResult<IBusEvent<T>>.CreateError(result.Reason ?? "serialization success was false, but reason was null");
         }
-        return new InnerBusEvent<T>((T)@event.Payload, @event.EventId, @event.CorrelationId);
+        if (result.Param?.Payload == null)
+        {
+            return SerializationResult<IBusEvent<T>>.CreateError("event was null");
+        }
+        return SerializationResult<IBusEvent<T>>.CreateSuccess(new InnerBusEvent<T>((T)result.Param.Payload, result.Param.EventId, result.Param.CorrelationId));
     }
 
     internal record InnerBusEvent<T>(T Payload, string EventId, string CorrelationId) : IBusEvent<T>;

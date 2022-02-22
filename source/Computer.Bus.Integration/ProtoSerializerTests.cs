@@ -43,16 +43,21 @@ public class ProtoSerializerTests
 
         string eventId = Guid.NewGuid().ToString();
         string correlationId = Guid.NewGuid().ToString();
-        var bytes = await _protoSerializer.Serialize(response, typeof(DefaultListResponse), eventId, correlationId).ConfigureAwait(false);
-
-        if (bytes == null)
+        var serializeResult = await _protoSerializer.Serialize(response, typeof(DefaultListResponse), eventId, correlationId).ConfigureAwait(false);
+        
+        Assert.IsTrue(serializeResult.Success);
+        Assert.IsNotNull(serializeResult.Param);
+        if (serializeResult.Param == null)
         {
             throw new NullReferenceException("something");
         }
-        var result = await _protoSerializer.Deserialize(bytes, typeof(DefaultListResponse)).ConfigureAwait(false);
+        var deserializationResult = await _protoSerializer.Deserialize(serializeResult.Param, typeof(DefaultListResponse)).ConfigureAwait(false);
 
-        var list = (DefaultListResponse?)result?.Payload;
-        Assert.AreEqual("Success!!!", list?.List?.Items.FirstOrDefault()?.Text);
+        Assert.IsTrue(deserializationResult.Success);
+        Assert.IsNotNull(deserializationResult.Param);
+        
+        var list = (DefaultListResponse?)deserializationResult.Param?.Payload;
+        Assert.AreEqual("Success!!!", list?.List?.Items?.FirstOrDefault()?.Text);
     }
     
     [ProtoContract]

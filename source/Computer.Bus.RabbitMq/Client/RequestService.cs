@@ -26,19 +26,39 @@ public class RequestService : IRequestService
     {
         var innerCorrelationId = correlationId ?? Guid.NewGuid().ToString();
         var innerResponseSubject = GetResponseSubject(responseSubject, innerCorrelationId);
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-        var responseTask = InnerSubscribe(responseType, innerResponseSubject, cancellationToken);
+        (string reason, Type? type, string? eid, string? cid, object? o)? innerErrorCallbackResult = null;
+        void InnerErrorCallback(string reason, Type? type, string? eid, string? cid, object? o)
+        {
+            innerErrorCallbackResult = new(reason, type, eid, cid, o);
+        }
+
+        var responseTask = InnerSubscribe(responseType, innerResponseSubject, InnerErrorCallback, cts.Token);
         
         var publishTask = InnerPublish(requestSubject, request, requestType, eventId, innerCorrelationId);
 
-        await Task.WhenAll(responseTask, publishTask).ConfigureAwait(false);
+        try
+        {
+            await Task.WhenAll(responseTask, publishTask).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            cts.Cancel();
+            return GenericResponse.CreateError(e.ToString(), eventId, innerCorrelationId);
+        }
+
+        if (innerErrorCallbackResult != null)
+        {
+            return GenericResponse.CreateError(innerErrorCallbackResult.Value.reason);
+        }
 
         return responseTask.Result;
     }
 
-    private async Task<IResponse> InnerSubscribe(
-        Type responseType,
+    private async Task<IResponse> InnerSubscribe(Type responseType,
         string responseSubject,
+        IBusClient.ErrorCallback? errorCallback,
         CancellationToken cancellationToken = default)
     {
 
@@ -57,7 +77,7 @@ public class RequestService : IRequestService
         {
             if (cts.Token.IsCancellationRequested)
             {
-                tcs.TrySetCanceled(cts.Token);
+                tcs.TrySetResult(GenericResponse.CreateError("Token was cancelled"));
                 return Task.CompletedTask;
             }
 
@@ -67,7 +87,7 @@ public class RequestService : IRequestService
             return Task.CompletedTask;
         }
 
-        subscription = await _bus.Subscribe(responseSubject, responseType, Callback).ConfigureAwait(false);
+        subscription = await _bus.Subscribe(responseSubject, responseType, Callback, errorCallback).ConfigureAwait(false);
 
         return await tcs.Task.ConfigureAwait(false);
     }
@@ -81,19 +101,44 @@ public class RequestService : IRequestService
     }
 
     public async Task<ISubscription> Listen(string requestSubject, Type requestType, string responseSubject, Type responseType,
-        IRequestService.CreateResponse createResponse)
+        IRequestService.CreateResponse createResponse,
+        IRequestService.ErrorCallback? errorCallback = null)
     {
         async Task Callback(object? request, Type? rType, string eventId, string correlationId)
         {
-            var response = await createResponse(request, rType, eventId, correlationId).ConfigureAwait(false);
+            (object?, Type) response;
+            try
+            {
+                response = await createResponse(request, rType, eventId, correlationId).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                errorCallback?.Invoke(e.ToString(), request, rType, eventId, correlationId);
+                return;
+            }
+            
             if (!responseType.IsAssignableFrom(response.Item2))
             {
-                throw new InvalidOperationException(
+                var e = new InvalidOperationException(
                     $"response type was unexpected. wanted:{responseType} got:{response.Item2}");
+                errorCallback?.Invoke(e.ToString(), request, rType, eventId, correlationId);
+                return;
             }
             var innerResponseSubject = GetResponseSubject(responseSubject, correlationId);
-            var s = await InnerPublish(innerResponseSubject,response.Item1, response.Item2, eventId: null, correlationId).ConfigureAwait(false);
-            //todo: do something if publish failed
+            IPublishResult s;
+            try
+            {
+                s = await InnerPublish(innerResponseSubject,response.Item1, response.Item2, eventId: null, correlationId).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                errorCallback?.Invoke(e.ToString(), request, rType, eventId, correlationId);
+                return;
+            }
+            if (!s.Success)
+            {
+                errorCallback?.Invoke(s.Reason ?? "success was false, but not reason", request, rType, eventId, correlationId);
+            }
         }
         return await _bus.Subscribe(requestSubject, requestType, Callback).ConfigureAwait(false);
     }

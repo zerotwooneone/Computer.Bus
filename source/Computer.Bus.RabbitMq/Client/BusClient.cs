@@ -24,12 +24,28 @@ public class BusClient : IBusClient
     {
         var eid = eventId ?? Guid.NewGuid().ToString();
         var cid = correlationId ?? Guid.NewGuid().ToString();
-        var body = await _serializer.Serialize(eid, cid).ConfigureAwait(false);
-        if (body == null)
+        ISerializationResult<byte[]?> result;
+        //try
+        //{
+            result = await _serializer.Serialize(eid, cid).ConfigureAwait(false);
+        //}
+        //catch (Exception e) //todo: catch only serialization exception
+        //{
+        //    return PublishResult.CreateError(e.ToString());
+        //}
+        if (!result.Success || result.Param == null)
         {
             return PublishResult.CreateError("Something went wrong while serializing");
         }
-        return await _channelAdapter.Publish(subjectId, body).ConfigureAwait(false);
+
+        try
+        {
+            return await _channelAdapter.Publish(subjectId, result.Param).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            return PublishResult.CreateError(e.ToString());
+        }
     }
 
     public async Task<IPublishResult> Publish(string subjectId,
@@ -45,51 +61,100 @@ public class BusClient : IBusClient
         }
         else
         {
-            body = await _serializer.Serialize(param, type, eid, cid).ConfigureAwait(false);
-            if (body == null)
+            ISerializationResult<byte[]?> result;
+            //try
+            //{
+                result = await _serializer.Serialize(param, type, eid, cid).ConfigureAwait(false);
+            //}
+            //catch (Exception e)
+            //{
+            //    return PublishResult.CreateError(e.ToString());
+            //}
+            if (!result.Success || result.Param == null)
             {
                 return PublishResult.CreateError("Serialization failed");
             }
+            body = result.Param;
         }
-        return await _channelAdapter.Publish(subjectId, body).ConfigureAwait(false);
+
+        try
+        {
+            return await _channelAdapter.Publish(subjectId, body).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            return PublishResult.CreateError(e.ToString());
+        }
     }
-    // public async Task<IPublishResult> Publish<T>(string subjectId,
-    //     T? param,
-    //     string? eventId = null, string? correlationId = null)
-    // {
-    //     var eid = eventId ?? Guid.NewGuid().ToString();
-    //     var cid = correlationId ?? Guid.NewGuid().ToString();
-    //     var body = await _serializer.Serialize(param, eid, cid);
-    //     return await _channelAdapter.Publish(subjectId, body);
-    // }
     
-    public Task<ISubscription> Subscribe(string subjectId, Type type, SubscribeCallbackP callback)
+    public Task<ISubscription> Subscribe(string subjectId, Type type, 
+        IBusClient.SubscribeCallbackP callback,
+        IBusClient.ErrorCallback? errorCallback = null)
     {
         async Task InnerCallback(byte[] b)
         {
-            var @event = await _serializer.Deserialize(b, type).ConfigureAwait(false);
-            if (@event == null)
+            ISerializationResult<IBusEvent> result;
+            try
             {
+                result = await _serializer.Deserialize(b, type).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                errorCallback?.Invoke(e.ToString(), type, null, null);
                 return;
             }
-            await callback(@event.Payload, type, @event.EventId, @event.CorrelationId).ConfigureAwait(false);
+            if (!result.Success || result.Param == null)
+            {
+                errorCallback?.Invoke(result.Reason ?? "bus deserialization failed, but there was no reason", 
+                    type, null, null, result.Param);
+                return;
+            }
+            await callback(result.Param.Payload, type, result.Param.EventId, result.Param.CorrelationId).ConfigureAwait(false);
         }
 
-        return _channelAdapter.Subscribe(subjectId, InnerCallback);
+        var innerChannelErrorCallback = errorCallback == null
+            ? (Action<string, string>?)null
+            : (string sid, string reason) =>
+            {
+                errorCallback.Invoke(reason, null, sid, null, null);
+            };
+        
+        return _channelAdapter.Subscribe(subjectId, InnerCallback, innerChannelErrorCallback);
     }
     
-    public Task<ISubscription> Subscribe(string subjectId,SubscribeCallbackNp callback)
+    public Task<ISubscription> Subscribe(string subjectId, 
+        IBusClient.SubscribeCallbackNp callback,
+        IBusClient.ErrorCallback? errorCallback = null)
     {
         async Task InnerCallback(byte[] b)
         {
-            var @event = await _serializer.Deserialize(b).ConfigureAwait(false);
-            if (@event == null)
+            ISerializationResult<IBusEvent> result;
+            try
             {
+                result = await _serializer.Deserialize(b).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                errorCallback?.Invoke(e.ToString(),
+                    null, null, null, null);
                 return;
             }
-            await callback(@event.EventId, @event.CorrelationId).ConfigureAwait(false);
+            if (!result.Success || result.Param == null)
+            {
+                errorCallback?.Invoke(result.Reason ?? "bus deserialization failed, but there was no reason",
+                    null, null, null, result.Param);
+                return;
+            }
+            await callback(result.Param.EventId, result.Param.CorrelationId).ConfigureAwait(false);
         }
+        
+        var innerChannelErrorCallback = errorCallback == null
+            ? (Action<string, string>?)null
+            : (string sid, string reason) =>
+            {
+                errorCallback.Invoke(reason, null, sid, null, null);
+            };
 
-        return _channelAdapter.Subscribe(subjectId, InnerCallback);
+        return _channelAdapter.Subscribe(subjectId, InnerCallback, innerChannelErrorCallback);
     }
 }

@@ -6,16 +6,16 @@ namespace Computer.Bus.ProtobuffNet;
 
 public class ProtoSerializer : ISerializer
 {
-    public Task<byte[]?> Serialize(string eventId, string correlationId)
+    public Task<ISerializationResult<byte[]?>> Serialize(string eventId, string correlationId)
     {
         using var memStream = new MemoryStream();
         var @event = new PublishEvent{ Payload = null, EventId = eventId, CorrelationId = correlationId };
         Serializer.Serialize(memStream, @event);
             
-        return Task.FromResult<byte[]?>(memStream.ToArray());
+        return Task.FromResult<ISerializationResult<byte[]?>>(SerializationResult<byte[]?>.CreateSuccess(memStream.ToArray()));
     }
 
-    public Task<byte[]?> Serialize(object? param, Type type, string eventId, string correlationId)
+    public Task<ISerializationResult<byte[]?>> Serialize(object? param, Type type, string eventId, string correlationId)
     {
         try
         {
@@ -27,15 +27,15 @@ public class ProtoSerializer : ISerializer
             var @event = new PublishEvent{ Payload = payloadBytes, EventId = eventId, CorrelationId = correlationId };
             Serializer.Serialize(memStream, @event);
             
-            return Task.FromResult<byte[]?>(memStream.ToArray());
+            return Task.FromResult<ISerializationResult<byte[]?>>(SerializationResult<byte[]?>.CreateSuccess(memStream.ToArray()));
         }
-        catch
+        catch (Exception e)
         {
-            return Task.FromResult<byte[]?>(null);
+            return Task.FromResult<ISerializationResult<byte[]?>>(SerializationResult<byte[]?>.CreateError(e.ToString()));
         }
     }
 
-    public async Task<IBusEvent?> Deserialize(byte[] bytes, Type? type = null)
+    public async Task<ISerializationResult<IBusEvent>> Deserialize(byte[] bytes, Type? type = null)
     {
         await using var memStream = new MemoryStream(bytes);
         var @event = Serializer.Deserialize(typeof(ReceiveEvent),memStream) as ReceiveEvent;
@@ -44,19 +44,19 @@ public class ProtoSerializer : ISerializer
             string.IsNullOrWhiteSpace(@event.EventId) ||
             string.IsNullOrWhiteSpace(@event.CorrelationId))
         {
-            return null;
+            return SerializationResult<IBusEvent>.CreateError("eventId or correlationId was null");
         }
 
         if (@event.Payload == null ||
             type == null)
         {
-            return new InnerBusEvent(null, @event.EventId, @event.CorrelationId);
+            return SerializationResult<IBusEvent>.CreateSuccess(new InnerBusEvent(null, @event.EventId, @event.CorrelationId));
         }
 
         await using var payloadStream = new MemoryStream(@event.Payload);
         var result = Serializer.Deserialize(type, payloadStream);
         
-        return new InnerBusEvent(result, @event.EventId, @event.CorrelationId);
+        return SerializationResult<IBusEvent>.CreateSuccess(new InnerBusEvent(result, @event.EventId, @event.CorrelationId));
     }
 
     internal record InnerBusEvent(object? Payload, string EventId, string CorrelationId) : IBusEvent;

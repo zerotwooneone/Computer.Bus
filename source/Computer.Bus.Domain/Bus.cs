@@ -59,7 +59,9 @@ public class Bus : IBus
         return PublishResult.FromDto(await _dtoBus.Publish(subjectId, dto, registration.Dto, eventId, correlationId).ConfigureAwait(false));
     }
 
-    public async Task<ISubscription> Subscribe(string subjectId, Type type, SubscribeCallbackP callback)
+    public async Task<ISubscription> Subscribe(string subjectId, Type type, 
+        IBus.SubscribeCallbackP callback,
+        IBus.ErrorCallback? errorCallback = null)
     {
         if (_initializer.RegistrationsBySubject == null)
         {
@@ -89,17 +91,36 @@ public class Bus : IBus
                 : mapper.DtoToDomain(registration.Dto, param, registration.Domain);
             await callback(domain, registration.Domain, eventId, correlationId).ConfigureAwait(false);
         }
-        var innerSubscription = await _dtoBus.Subscribe(subjectId, registration.Dto, InnerCallback).ConfigureAwait(false);
+
+        void DtoErrorCallback(string reason, Type? type1, string? eid, string? cid, object? o)
+        {
+            errorCallback.Invoke(reason, o, type1, eid, cid);
+        }
+
+        var dtoErrorCallback = errorCallback == null
+            ? (IDtoBus.ErrorCallback?)null
+            : DtoErrorCallback;
+        var innerSubscription = await _dtoBus.Subscribe(subjectId, registration.Dto, InnerCallback, dtoErrorCallback).ConfigureAwait(false);
         return new DomainSubscription(innerSubscription);
     }
 
-    public async Task<ISubscription> Subscribe(string subjectId, SubscribeCallbackNp callback)
+    public async Task<ISubscription> Subscribe(string subjectId, 
+        IBus.SubscribeCallbackNp callback,
+        IBus.ErrorCallback? errorCallback = null)
     {
         async Task InnerCallback(string eventId, string correlationId)
         {
             await callback(eventId, correlationId).ConfigureAwait(false);
         }
-        var innerSubscription = await _dtoBus.Subscribe(subjectId, InnerCallback).ConfigureAwait(false);
+        void DtoErrorCallback(string reason, Type? type1, string? eid, string? cid, object? o)
+        {
+            errorCallback.Invoke(reason, o, type1, eid, cid);
+        }
+
+        var dtoErrorCallback = errorCallback == null
+            ? (IDtoBus.ErrorCallback?)null
+            : DtoErrorCallback;
+        var innerSubscription = await _dtoBus.Subscribe(subjectId, InnerCallback, dtoErrorCallback).ConfigureAwait(false);
         return new DomainSubscription(innerSubscription);
     }
 }

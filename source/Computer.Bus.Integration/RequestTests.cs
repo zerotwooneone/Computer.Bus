@@ -47,7 +47,13 @@ public class RequestTests
                         { fNumber = received.Count, someString = "some response", Timestamp = DateTime.Now });
                 }
 
-                using var subscription = requestService.Listen<ProtoModel, ProtoModel>(subjectId, responseSubject, Callback);
+                void ErrorCallback(string reason, ProtoModel? model, string? id, string? correlationId)
+                {
+                    Assert.Fail(reason);
+                }
+
+                using var subscription = requestService.Listen<ProtoModel, ProtoModel>(subjectId, responseSubject, 
+                    Callback, ErrorCallback);
                 listenStarted.TrySetResult();
 
                 await publishCompleted.Task.ConfigureAwait(false);
